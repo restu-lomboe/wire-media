@@ -16,7 +16,7 @@ trait HandleExistingFiles
      *   2. Array of path strings:  ['uploads/foo.jpg', 'uploads/bar.pdf']
      *   3. Eloquent Model + attribute name containing path(s)
      *
-     * @param  array|\Illuminate\Database\Eloquent\Model|null  $existingFiles
+     * @param  array|Model|null  $existingFiles
      * @param  string|null  $modelAttribute  Column name on the model
      */
     protected function loadExistingFiles(
@@ -39,7 +39,7 @@ trait HandleExistingFiles
             if (is_string($value)) {
                 // Try JSON first (e.g. stored as JSON column)
                 $decoded = json_decode($value, true);
-                $paths   = is_array($decoded) ? $decoded : [$value];
+                $paths = is_array($decoded) ? $decoded : [$value];
             } elseif (is_array($value)) {
                 $paths = $value;
             } else {
@@ -94,21 +94,21 @@ trait HandleExistingFiles
             return null;
         }
 
-        $url       = Storage::disk($disk)->url($path);
-        $size      = Storage::disk($disk)->size($path);
-        $mime      = Storage::disk($disk)->mimeType($path) ?: 'application/octet-stream';
+        $url = Storage::disk($disk)->url($path);
+        $size = Storage::disk($disk)->size($path);
+        $mime = Storage::disk($disk)->mimeType($path) ?: 'application/octet-stream';
         $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $basename  = pathinfo($path, PATHINFO_BASENAME);
+        $basename = pathinfo($path, PATHINFO_BASENAME);
 
         return $this->hydrateMetadata([
             'original_name' => $basename,
-            'path'          => $path,
-            'disk'          => $disk,
-            'url'           => $url,
-            'size'          => $size,
-            'mime'          => $mime,
-            'extension'     => $extension,
-            'uploaded_at'   => now()->toIso8601String(),
+            'path' => $path,
+            'disk' => $disk,
+            'url' => $url,
+            'size' => $size,
+            'mime' => $mime,
+            'extension' => $extension,
+            'uploaded_at' => now()->toIso8601String(),
         ]);
     }
 
@@ -118,23 +118,23 @@ trait HandleExistingFiles
      */
     protected function hydrateMetadata(array $meta): array
     {
-        $disk      = $meta['disk']      ?? $this->disk;
-        $path      = $meta['path']      ?? '';
-        $mime      = $meta['mime']      ?? 'application/octet-stream';
+        $disk = $meta['disk'] ?? $this->disk;
+        $path = $meta['path'] ?? '';
+        $mime = $meta['mime'] ?? 'application/octet-stream';
         $extension = $meta['extension'] ?? strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $size      = $meta['size']      ?? 0;
+        $size = $meta['size'] ?? 0;
 
         return array_merge($meta, [
-            'disk'          => $disk,
-            'extension'     => $extension,
-            'mime'          => $mime,
-            'size'          => $size,
-            'size_human'    => $meta['size_human']  ?? $this->formatBytes((int) $size),
-            'url'           => $meta['url']          ?? Storage::disk($disk)->url($path),
-            'is_image'      => $meta['is_image']     ?? str_starts_with($mime, 'image/'),
-            'is_document'   => $meta['is_document']  ?? $this->isDocument($mime, $extension),
-            'is_pdf'        => ($mime === 'application/pdf' || $extension === 'pdf'),
-            'uploaded_at'   => $meta['uploaded_at']  ?? now()->toIso8601String(),
+            'disk' => $disk,
+            'extension' => $extension,
+            'mime' => $mime,
+            'size' => $size,
+            'size_human' => $meta['size_human'] ?? $this->formatBytes((int) $size),
+            'url' => $meta['url'] ?? Storage::disk($disk)->url($path),
+            'is_image' => $meta['is_image'] ?? str_starts_with($mime, 'image/'),
+            'is_document' => $meta['is_document'] ?? $this->isDocument($mime, $extension),
+            'is_pdf' => ($mime === 'application/pdf' || $extension === 'pdf'),
+            'uploaded_at' => $meta['uploaded_at'] ?? now()->toIso8601String(),
         ]);
     }
 }

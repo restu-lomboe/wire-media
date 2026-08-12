@@ -6,6 +6,7 @@ use Developerawam\WireMedia\Concerns\HandleExistingFiles;
 use Developerawam\WireMedia\Concerns\HandleFileStorage;
 use Developerawam\WireMedia\Concerns\HandleFileValidation;
 use Developerawam\WireMedia\Concerns\HandleImageProcessing;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -21,84 +22,85 @@ class FileUpload extends Component
     // ─── Wire model ──────────────────────────────────────────────────────────
     public mixed $files = null;
 
-    /** @var array  All file metadata (new + existing) */
+    /** @var array All file metadata (new + existing) */
     public array $uploadedFiles = [];
 
     // ─── Edit / existing ─────────────────────────────────────────────────────
-    public mixed   $existingFiles   = null;
-    public ?string $modelAttribute  = null;
+    public mixed $existingFiles = null;
+
+    public ?string $modelAttribute = null;
 
     // ─── Config ──────────────────────────────────────────────────────────────
-    public bool   $multiple           = false;
-    public array  $acceptedMimeTypes  = [];
-    public array  $acceptedExtensions = [];
-    public string $acceptAttribute    = '';
-    public float  $maxSizeMb          = 2.0;
-    public int    $maxFiles           = 0;
-    public string $disk               = 'public';
-    public string $directory          = 'uploads';
-    public bool   $showPreview        = true;
-    public bool   $showList           = true;
-    public string $label              = '';
-    public string $helpText           = '';
-    public bool   $darkMode           = false;
+    public bool $multiple = false;
+
+    public array $acceptedMimeTypes = [];
+
+    public array $acceptedExtensions = [];
+
+    public string $acceptAttribute = '';
+
+    public float $maxSizeMb = 2.0;
+
+    public int $maxFiles = 0;
+
+    public string $disk = 'public';
+
+    public string $directory = 'uploads';
+
+    public bool $showPreview = true;
+
+    public bool $showList = true;
+
+    public string $label = '';
+
+    public string $helpText = '';
+
+    public bool $darkMode = false;
 
     // ─── UI state ────────────────────────────────────────────────────────────
-    public array   $errors        = [];
-    public bool    $isUploading   = false;
-    public string  $uploadProgress = '0';
+    public array $errors = [];
 
     /** Detail panel */
-    public ?int    $previewIndex = null;
+    public ?int $previewIndex = null;
 
     /** Image editor panel */
-    public bool    $editorOpen    = false;
-    public ?int    $editorIndex   = null;
+    public bool $editorOpen = false;
 
-    /**
-     * Base64 data-URL sent from JS canvas → PHP for server-side storage.
-     * Kept as a Livewire public property so it can be submitted via wire:click.
-     * Note: For large images the data URL can be big; we accept this trade-off
-     * to keep the package dependency-free.
-     */
-    public ?string $editorDataUrl = null;
-
-    /** 'replace' | 'add' */
-    public string  $editorSaveMode = 'replace';
+    public ?int $editorIndex = null;
 
     // ─────────────────────────────────────────────────────────────────────────
 
     public function mount(
-        bool    $multiple           = false,
-        array   $acceptedMimeTypes  = [],
-        array   $acceptedExtensions = [],
-        string  $acceptAttribute    = '',
-        float   $maxSizeMb          = 2.0,
-        int     $maxFiles           = 0,
-        string  $disk               = 'public',
-        string  $directory          = 'uploads',
-        bool    $showPreview        = true,
-        bool    $showList           = true,
-        string  $label              = '',
-        string  $helpText           = '',
-        mixed   $existingFiles      = null,
-        ?string $modelAttribute     = null,
-        bool    $darkMode           = false,
+        bool $multiple = false,
+        array $acceptedMimeTypes = [],
+        array $acceptedExtensions = [],
+        string $acceptAttribute = '',
+        ?float $maxSizeMb = null,
+        ?int $maxFiles = null,
+        ?string $disk = null,
+        ?string $directory = null,
+        ?bool $showPreview = null,
+        ?bool $showList = null,
+        string $label = '',
+        string $helpText = '',
+        mixed $existingFiles = null,
+        ?string $modelAttribute = null,
+        ?bool $darkMode = null,
     ): void {
-        $this->multiple           = $multiple;
-        $this->acceptedMimeTypes  = $acceptedMimeTypes;
-        $this->acceptedExtensions = $acceptedExtensions;
-        $this->maxSizeMb          = $maxSizeMb;
-        $this->maxFiles           = $maxFiles;
-        $this->disk               = $disk;
-        $this->directory          = $directory;
-        $this->showPreview        = $showPreview;
-        $this->showList           = $showList;
-        $this->label              = $label ?: trans('wire-media::messages.default_label');
-        $this->helpText           = $helpText;
-        $this->modelAttribute     = $modelAttribute;
-        $this->acceptAttribute    = $acceptAttribute ?: $this->buildAcceptAttribute();
-        $this->darkMode           = $darkMode;
+        $this->multiple = $multiple;
+        $this->acceptedMimeTypes = $acceptedMimeTypes ?: (array) config('wire-media.accepted_mime_types', []);
+        $this->acceptedExtensions = $acceptedExtensions ?: (array) config('wire-media.accepted_extensions', []);
+        $this->maxSizeMb = (float) ($maxSizeMb ?? config('wire-media.max_size_mb', 2.0));
+        $this->maxFiles = (int) ($maxFiles ?? config('wire-media.max_files', 0));
+        $this->disk = $disk ?? (string) config('wire-media.disk', 'public');
+        $this->directory = $directory ?? (string) config('wire-media.directory', 'uploads');
+        $this->showPreview = $showPreview ?? (bool) config('wire-media.show_preview', true);
+        $this->showList = $showList ?? (bool) config('wire-media.show_list', true);
+        $this->label = $label ?: trans('wire-media::messages.default_label');
+        $this->helpText = $helpText;
+        $this->modelAttribute = $modelAttribute;
+        $this->acceptAttribute = $acceptAttribute ?: $this->buildAcceptAttribute();
+        $this->darkMode = $darkMode ?? (bool) config('wire-media.dark_mode', false);
 
         if ($existingFiles) {
             $this->loadExistingFiles($existingFiles, $modelAttribute);
@@ -109,8 +111,7 @@ class FileUpload extends Component
 
     public function updatedFiles(): void
     {
-        $this->errors      = [];
-        $this->isUploading = false;
+        $this->errors = [];
 
         $filesToProcess = $this->multiple
             ? (is_array($this->files) ? $this->files : [$this->files])
@@ -119,15 +120,22 @@ class FileUpload extends Component
         if ($this->multiple && $this->maxFiles > 0) {
             if (count($filesToProcess) + count($this->uploadedFiles) > $this->maxFiles) {
                 $this->errors[] = trans('wire-media::messages.max_files', ['max' => $this->maxFiles]);
+
                 return;
             }
         }
 
         foreach ($filesToProcess as $file) {
-            if (! $file) continue;
+            if (! $file) {
+                continue;
+            }
 
             $errs = $this->validateFile($file);
-            if (! empty($errs)) { $this->errors = array_merge($this->errors, $errs); continue; }
+            if (! empty($errs)) {
+                $this->errors = array_merge($this->errors, $errs);
+
+                continue;
+            }
 
             $stored = $this->storeFile($file);
             if ($stored) {
@@ -144,23 +152,35 @@ class FileUpload extends Component
 
     public function removeFile(int $index): void
     {
-        if (! isset($this->uploadedFiles[$index])) return;
+        if (! isset($this->uploadedFiles[$index])) {
+            return;
+        }
 
         $removed = $this->uploadedFiles[$index];
-        $disk    = $removed['disk'] ?? $this->disk;
-        $path    = $removed['path'] ?? null;
+        $disk = $removed['disk'] ?? $this->disk;
+        $path = $removed['path'] ?? null;
 
-        if ($path && Storage::disk($disk)->exists($path)) {
+        // Never delete pre-existing files from storage — the app owns those.
+        if (! ($removed['is_existing'] ?? false) && $path && Storage::disk($disk)->exists($path)) {
             Storage::disk($disk)->delete($path);
         }
 
-        if ($this->previewIndex === $index) $this->previewIndex = null;
-        if ($this->editorIndex  === $index) { $this->editorOpen = false; $this->editorIndex = null; }
+        if ($this->previewIndex === $index) {
+            $this->previewIndex = null;
+        }
+        if ($this->editorIndex === $index) {
+            $this->editorOpen = false;
+            $this->editorIndex = null;
+        }
 
         array_splice($this->uploadedFiles, $index, 1);
 
-        if ($this->previewIndex !== null && $this->previewIndex > $index) $this->previewIndex--;
-        if ($this->editorIndex  !== null && $this->editorIndex  > $index) $this->editorIndex--;
+        if ($this->previewIndex !== null && $this->previewIndex > $index) {
+            $this->previewIndex--;
+        }
+        if ($this->editorIndex !== null && $this->editorIndex > $index) {
+            $this->editorIndex--;
+        }
 
         $this->dispatch('file-removed', file: $removed);
     }
@@ -168,6 +188,11 @@ class FileUpload extends Component
     public function clearAll(): void
     {
         foreach ($this->uploadedFiles as $file) {
+            // Pre-existing files are owned by the app — leave them on disk.
+            if ($file['is_existing'] ?? false) {
+                continue;
+            }
+
             $disk = $file['disk'] ?? $this->disk;
             $path = $file['path'] ?? null;
             if ($path && Storage::disk($disk)->exists($path)) {
@@ -175,12 +200,11 @@ class FileUpload extends Component
             }
         }
 
-        $this->uploadedFiles  = [];
-        $this->errors         = [];
-        $this->previewIndex   = null;
-        $this->editorOpen     = false;
-        $this->editorIndex    = null;
-        $this->editorDataUrl  = null;
+        $this->uploadedFiles = [];
+        $this->errors = [];
+        $this->previewIndex = null;
+        $this->editorOpen = false;
+        $this->editorIndex = null;
         $this->dispatch('files-cleared');
     }
 
@@ -189,7 +213,7 @@ class FileUpload extends Component
     public function openPreview(int $index): void
     {
         $this->previewIndex = isset($this->uploadedFiles[$index]) ? $index : null;
-        $this->editorOpen   = false;
+        $this->editorOpen = false;
     }
 
     public function closePreview(): void
@@ -201,21 +225,23 @@ class FileUpload extends Component
 
     public function openEditor(int $index): void
     {
-        if (! isset($this->uploadedFiles[$index])) return;
-        if (! $this->uploadedFiles[$index]['is_image']) return;
+        if (! isset($this->uploadedFiles[$index])) {
+            return;
+        }
+        if (! $this->uploadedFiles[$index]['is_image']) {
+            return;
+        }
 
-        $this->editorIndex   = $index;
-        $this->editorOpen    = true;
-        $this->editorDataUrl = null;
-        $this->previewIndex  = null;
-        $this->errors        = [];
+        $this->editorIndex = $index;
+        $this->editorOpen = true;
+        $this->previewIndex = null;
+        $this->errors = [];
     }
 
     public function closeEditor(): void
     {
-        $this->editorOpen    = false;
-        $this->editorIndex   = null;
-        $this->editorDataUrl = null;
+        $this->editorOpen = false;
+        $this->editorIndex = null;
     }
 
     /**
@@ -234,13 +260,20 @@ class FileUpload extends Component
     protected function buildAcceptAttribute(): string
     {
         $parts = [];
-        foreach ($this->acceptedExtensions as $ext) $parts[] = '.'.ltrim($ext, '.');
-        foreach ($this->acceptedMimeTypes   as $mime) $parts[] = $mime;
+        foreach ($this->acceptedExtensions as $ext) {
+            $parts[] = '.'.ltrim($ext, '.');
+        }
+        foreach ($this->acceptedMimeTypes as $mime) {
+            $parts[] = $mime;
+        }
+
         return implode(',', $parts);
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    public function render(): View
     {
-        return view('wire-media::components.file-upload');
+        return view('wire-media::components.file-upload', [
+            'wireMediaJsPath' => dirname(__DIR__, 2).'/resources/js',
+        ]);
     }
 }

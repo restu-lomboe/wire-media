@@ -17,6 +17,10 @@ class ImageProcessor {
         this.src = src;
         this.img = null;
 
+        // Maximum output dimension (in pixels) for exported images.
+        // Prevents memory blow-ups when editing very large photos.
+        this.MAX_EXPORT = 4096;
+
         // Transform state
         this.zoom = 1;
         this.rotation = 0; // degrees: 0 | 90 | 180 | 270
@@ -43,7 +47,15 @@ class ImageProcessor {
 
     _loadImage(src) {
         const img = new Image();
-        img.crossOrigin = "anonymous";
+        // Only request CORS access for cross-origin URLs. Setting
+        // crossOrigin on same-origin URLs can poison the canvas on some setups.
+        try {
+            if (new URL(src, window.location.href).origin !== window.location.origin) {
+                img.crossOrigin = "anonymous";
+            }
+        } catch (e) {
+            img.crossOrigin = "anonymous";
+        }
         img.onload = () => {
             this.img = img;
             this._ready = true;
@@ -53,7 +65,7 @@ class ImageProcessor {
             this.canvas.dispatchEvent(new CustomEvent("ip:ready"));
         };
         img.onerror = () => {
-            this.canvas.dispatchEvent(new CustomEvent("ip:error"));
+            this.canvas.dispatchEvent(new CustomEvent("ip:error", { detail: { src } }));
         };
         img.src = src;
     }
@@ -324,8 +336,36 @@ class ImageProcessor {
     }
 
     /**
-     * Apply crop: renders the current crop selection to a new canvas
-     * and returns a data-URL (PNG).
+     * Effective scale factor that maps the fitted canvas coordinates back to
+     * the image's natural resolution, capped so the longest export side never
+     * exceeds MAX_EXPORT (prevents memory blow-ups).
+     * @returns {number}
+     */
+    _getScale() {
+        if (!this.img || !this.img.naturalWidth) return 1;
+        const maxDim = Math.max(this.img.naturalWidth, this.img.naturalHeight);
+        const cap = Math.min(1, this.MAX_EXPORT / maxDim);
+        const fitScale = this.canvas.width / this.img.naturalWidth;
+        return (1 / fitScale) * cap;
+    }
+
+    /**
+     * Clamp dimensions so the longest side never exceeds MAX_EXPORT.
+     * @param {number} w
+     * @param {number} h
+     * @returns {{w: number, h: number}}
+     */
+    _exportDims(w, h) {
+        const ratio = Math.min(1, this.MAX_EXPORT / Math.max(w, h));
+        return {
+            w: Math.max(1, Math.round(w * ratio)),
+            h: Math.max(1, Math.round(h * ratio)),
+        };
+    }
+
+    /**
+     * Apply crop: renders the current crop selection to a new canvas at
+     * (up to) natural resolution and returns a data-URL (PNG).
      * @returns {string|null}
      */
     applyCrop() {
@@ -333,56 +373,88 @@ class ImageProcessor {
             return null;
 
         const r = this.cropRect;
+        const effScale = this._getScale();
+        const nr = {
+            x: r.x * effScale,
+            y: r.y * effScale,
+            w: r.w * effScale,
+            h: r.h * effScale,
+        };
+        const dims = this._exportDims(nr.w, nr.h);
+        const outScale = dims.w / nr.w;
+
         const out = document.createElement("canvas");
-        out.width = r.w;
-        out.height = r.h;
+        out.width = dims.w;
+        out.height = dims.h;
         const octx = out.getContext("2d");
 
-        // Render clean (tanpa overlay) dulu ke temp canvas
+        // Render clean (tanpa overlay) ke temp canvas pada resolusi natural
         const temp = document.createElement("canvas");
-        temp.width = this.canvas.width;
-        temp.height = this.canvas.height;
+        temp.width = Math.round(this.canvas.width * effScale);
+        temp.height = Math.round(this.canvas.height * effScale);
         const tctx = temp.getContext("2d");
         const { zoom, rotation, flipH, flipV, panOffset } = this;
-        const w = temp.width,
-            h = temp.height;
+        const tw = temp.width,
+            th = temp.height;
 
         tctx.save();
-        tctx.translate(w / 2 + panOffset.x, h / 2 + panOffset.y);
-        tctx.scale((flipH ? -1 : 1) * zoom, (flipV ? -1 : 1) * zoom);
+        tctx.translate(tw / 2 + panOffset.x * effScale, th / 2 + panOffset.y * effScale);
+        tctx.scale((flipH ? -1 : 1) * zoom * effScale, (flipV ? -1 : 1) * zoom * effScale);
         tctx.rotate((rotation * Math.PI) / 180);
-        tctx.drawImage(this.img, -w / 2, -h / 2, w, h);
+        tctx.drawImage(this.img, -this.canvas.width / 2, -this.canvas.height / 2, this.canvas.width, this.canvas.height);
         tctx.restore();
 
         // Crop dari temp canvas yang bersih
-        octx.drawImage(temp, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+        octx.drawImage(
+            temp,
+            nr.x * outScale, nr.y * outScale, nr.w * outScale, nr.h * outScale,
+            0, 0, out.width, out.height,
+        );
 
         this.disableCrop();
         return out.toDataURL("image/png");
     }
 
     /**
-     * Export the full current view (with zoom/rotate/flip) as PNG data-URL.
-     * @param {number} [scale=1]  — set >1 for higher resolution output
-     * @returns {string}
+     * Export the full current view (with zoom/rotate/flip) as a data-URL at
+     * (up to) natural resolution.
+     * @param {number} [scale=1]  — additional output multiplier (>1 = bigger)
+     * @param {string} [mime]     — output MIME (jpeg/webp/gif kept, else PNG)
+     * @returns {string|null}
      */
-    exportDataURL(scale = 1) {
+    exportDataURL(scale = 1, mime) {
+        if (!this.img || !this.img.naturalWidth) return null;
+
+        const exportMime =
+            mime === "image/jpeg" || mime === "image/webp" || mime === "image/gif"
+                ? mime
+                : "image/png";
+        const effScale = this._getScale() * (scale || 1);
+
+        let baseW = this.canvas.width * effScale * this.zoom;
+        let baseH = this.canvas.height * effScale * this.zoom;
+        if (this.rotation % 180 !== 0) {
+            const t = baseW;
+            baseW = baseH;
+            baseH = t;
+        }
+        const dims = this._exportDims(baseW, baseH);
+        const outScale = dims.w / baseW;
+
         const out = document.createElement("canvas");
-        out.width = this.canvas.width * scale;
-        out.height = this.canvas.height * scale;
+        out.width = dims.w;
+        out.height = dims.h;
         const octx = out.getContext("2d");
         const { zoom, rotation, flipH, flipV, panOffset } = this;
-        const w = out.width,
-            h = out.height;
 
         octx.save();
         octx.translate(
-            w / 2 + panOffset.x * scale,
-            h / 2 + panOffset.y * scale,
+            out.width / 2 + panOffset.x * effScale * outScale,
+            out.height / 2 + panOffset.y * effScale * outScale,
         );
         octx.scale(
-            (flipH ? -1 : 1) * zoom * scale,
-            (flipV ? -1 : 1) * zoom * scale,
+            (flipH ? -1 : 1) * zoom * effScale * outScale,
+            (flipV ? -1 : 1) * zoom * effScale * outScale,
         );
         octx.rotate((rotation * Math.PI) / 180);
         octx.drawImage(
@@ -394,7 +466,7 @@ class ImageProcessor {
         );
         octx.restore();
 
-        return out.toDataURL("image/png");
+        return out.toDataURL(exportMime);
     }
 
     /**

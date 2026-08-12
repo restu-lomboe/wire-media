@@ -73,10 +73,11 @@
                     $isPdf = $file['is_pdf'] ?? false;
                     $isEx = $file['is_existing'] ?? false;
                 @endphp
-                <div class="da-card {{ $previewIndex === $idx || $editorIndex === $idx ? 'da-card--active' : '' }}">
+                <div class="da-card {{ $previewIndex === $idx || $editorIndex === $idx ? 'da-card--active' : '' }}"
+                    wire:key="{{ 'wm-file-'.$file['path'].'-'.$idx }}">
 
                     {{-- Thumb --}}
-                    <button type="button" class="da-card__thumb" wire:click="openPreview({{ $idx }})"
+                    <button type="button" class="da-card__thumb" @click="openLightbox({{ $idx }})"
                         title="{{ trans('wire-media::messages.preview_info') }}">
                         @if ($showPreview && $isImg)
                             <img src="{{ $file['url'] }}" alt="{{ $file['original_name'] }}" class="da-card__img"
@@ -275,7 +276,9 @@
 
     {{-- ══════════════════════ IMAGE EDITOR ════════════════════════════════════ --}}
     @if ($editorFile)
-        <div class="da-editor" x-data="daImageEditor('{{ $editorFile['url'] }}', {{ $editorIndex }})" x-init="initEditor()" wire:ignore>
+        <div class="da-editor"
+            x-data="daImageEditor(@js($editorFile['url']), {{ $editorIndex }}, @js($editorFile['mime'] ?? 'image/png'), @js($editorFile['original_name'] ?? 'edited-image'))"
+            x-init="initEditor()" wire:ignore>
             {{-- Toolbar --}}
             <div class="da-editor__toolbar">
                 <div class="da-editor__toolbar-group">
@@ -380,6 +383,20 @@
                         <span class="da-tool-btn__text">{{ trans('wire-media::messages.editor_reset') }}</span>
                     </button>
                 </div>
+
+                <div class="da-editor__toolbar-spacer"></div>
+
+                <div class="da-editor__toolbar-group">
+                    <button type="button" class="da-tool-btn da-tool-btn--close" wire:click="closeEditor"
+                        title="{{ trans('wire-media::messages.cancel') }}">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                        <span class="da-tool-btn__text">{{ trans('wire-media::messages.cancel') }}</span>
+                    </button>
+                </div>
             </div>
 
             {{-- Canvas --}}
@@ -396,6 +413,9 @@
                 <kbd>Drag</kbd> {{ trans('wire-media::messages.hint_drag_pan') }} &nbsp;
                 <kbd>Crop mode</kbd>: {{ trans('wire-media::messages.hint_crop_drag') }}
             </p>
+
+            {{-- Editor error --}}
+            <p class="da-editor__error" x-show="errorMessage" x-text="errorMessage" x-cloak></p>
 
             {{-- Save bar --}}
             <div class="da-editor__save-bar">
@@ -452,17 +472,21 @@
 
 
 {{-- ══════════════════════════ SCRIPTS ═════════════════════════════════════ --}}
-@once
+@assets
     <script>
         /* ════════════════════════════════════════════════════════════════════════════
                        ImageProcessor — canvas engine
                        ════════════════════════════════════════════════════════════════════════════ */
-        {!! file_get_contents($wireMediaJsPath . '/image-processor.js') !!}
+        @if (file_exists($wireMediaJsPath . '/image-processor.js'))
+            {!! file_get_contents($wireMediaJsPath . '/image-processor.js') !!}
+        @endif
 
         /* ════════════════════════════════════════════════════════════════════════════
            LightboxManager — fullscreen carousel
            ════════════════════════════════════════════════════════════════════════════ */
-        {!! file_get_contents($wireMediaJsPath . '/lightbox-manager.js') !!}
+        @if (file_exists($wireMediaJsPath . '/lightbox-manager.js'))
+            {!! file_get_contents($wireMediaJsPath . '/lightbox-manager.js') !!}
+        @endif
 
         /* ════════════════════════════════════════════════════════════════════════════
            Alpine component: daFileUpload
@@ -494,15 +518,31 @@
                     new LightboxManager(
                         this.files,
                         originalIndex,
-                        (idx) => this.$wire.openEditor(idx)
+                        (idx) => this.$wire.openEditor(idx),
+                        {
+                            fileDetails: '{{ trans('wire-media::messages.file_info') }}',
+                            name: '{{ trans('wire-media::messages.info_name') }}',
+                            type: '{{ trans('wire-media::messages.info_type') }}',
+                            size: '{{ trans('wire-media::messages.info_size') }}',
+                            disk: '{{ trans('wire-media::messages.info_disk') }}',
+                            path: '{{ trans('wire-media::messages.info_path') }}',
+                            uploaded: '{{ trans('wire-media::messages.info_uploaded') }}',
+                            status: '{{ trans('wire-media::messages.info_status') }}',
+                            edit: '{{ trans('wire-media::messages.edit_image') }}',
+                            badgeNew: '{{ trans('wire-media::messages.badge_new') }}',
+                            badgeExisting: '{{ trans('wire-media::messages.badge_existing') }}',
+                        }
                     );
                 },
             }));
 
             /* ── Alpine component: daImageEditor ─────────────────────────────────── */
-            Alpine.data('daImageEditor', (src, index) => ({
+            Alpine.data('daImageEditor', (src, index, mime, originalName) => ({
                 src: src,
+                originalSrc: src,
                 index: index,
+                mime: mime,
+                originalName: originalName,
                 proc: null,
                 cropMode: false,
                 hasCrop: false,
@@ -510,8 +550,10 @@
                 saveMode: 'replace',
                 saving: false,
                 canvasReady: false,
+                errorMessage: '',
 
                 initEditor() {
+                    this.errorMessage = '';
                     this.$nextTick(() => {
                         const canvas = document.getElementById('da-editor-canvas-' + this
                             .index);
@@ -521,6 +563,11 @@
 
                         canvas.addEventListener('ip:ready', () => {
                             this.canvasReady = true;
+                        });
+
+                        canvas.addEventListener('ip:error', () => {
+                            this.canvasReady = false;
+                            this.errorMessage = '{{ trans('wire-media::messages.editor_load_failed') }}';
                         });
 
                         canvas.addEventListener('ip:zoom', (e) => {
@@ -540,8 +587,9 @@
                 },
 
                 applyCrop() {
-                    const dataUrl = this.proc.applyCrop();
-                    if (dataUrl) {
+                    try {
+                        const dataUrl = this.proc.applyCrop();
+                        if (!dataUrl) return;
                         // Reload editor with cropped result
                         this.src = dataUrl;
                         this.cropMode = false;
@@ -549,35 +597,57 @@
                         this.canvasReady = false;
                         this.proc.destroy();
                         this.$nextTick(() => this.initEditor());
+                    } catch (e) {
+                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
                     }
                 },
 
                 resetAll() {
-                    if (this.proc) {
-                        this.proc.resetAll();
-                        this.cropMode = false;
-                        this.hasCrop = false;
-                        this.zoomLabel = '100%';
-                        // Reload from original src
-                        this.src = this.src;
-                    }
+                    if (!this.proc) return;
+                    // Restore the true original image (undoes crops too)
+                    this.proc.destroy();
+                    this.cropMode = false;
+                    this.hasCrop = false;
+                    this.zoomLabel = '100%';
+                    this.canvasReady = false;
+                    this.src = this.originalSrc;
+                    this.$nextTick(() => this.initEditor());
+                },
+
+                _baseName() {
+                    const name = this.originalName || 'edited-image';
+                    const dot = name.lastIndexOf('.');
+                    return dot > 0 ? name.slice(0, dot) : name;
+                },
+
+                _extForMime() {
+                    if (this.mime === 'image/jpeg') return 'jpg';
+                    if (this.mime === 'image/webp') return 'webp';
+                    if (this.mime === 'image/gif') return 'gif';
+                    return 'png';
                 },
 
                 downloadCurrent() {
                     if (!this.proc) return;
-                    const dataUrl = this.proc.exportDataURL(1);
-                    const a = document.createElement('a');
-                    a.href = dataUrl;
-                    a.download = 'edited-image.png';
-                    a.click();
+                    try {
+                        const dataUrl = this.proc.exportDataURL(1, this.mime);
+                        const a = document.createElement('a');
+                        a.href = dataUrl;
+                        a.download = this._baseName() + '-edited.' + this._extForMime();
+                        a.click();
+                    } catch (e) {
+                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
+                    }
                 },
 
                 async saveToServer() {
                     if (!this.proc) return;
                     this.saving = true;
                     try {
-                        const dataUrl = this.proc.exportDataURL(1);
+                        const dataUrl = this.proc.exportDataURL(1, this.mime);
                         await this.$wire.saveProcessedImage(this.index, dataUrl, this.saveMode);
+                    } catch (e) {
+                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
                     } finally {
                         this.saving = false;
                     }
@@ -1135,9 +1205,13 @@
 
         /* ── Image Editor ───────────────────────────────────────────────────────── */
         .da-editor {
-            margin-top: 1rem;
-            border: 1.5px solid var(--da-accent);
-            border-radius: var(--da-radius);
+            position: fixed;
+            inset: 0;
+            z-index: 9998;
+            display: flex;
+            flex-direction: column;
+            border: none;
+            border-radius: 0;
             background: var(--da-bg);
             overflow: hidden;
         }
@@ -1155,6 +1229,16 @@
             display: flex;
             align-items: center;
             gap: .35rem;
+        }
+
+        .da-editor__toolbar-spacer {
+            flex: 1;
+        }
+
+        .da-tool-btn--close:hover {
+            border-color: var(--da-danger);
+            color: var(--da-danger);
+            background: var(--da-danger-bg);
         }
 
         .da-editor__toolbar-label {
@@ -1224,19 +1308,19 @@
 
         .da-editor__canvas-wrap {
             position: relative;
+            flex: 1;
             background: #0f172a;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 300px;
-            max-height: 65vh;
+            min-height: 0;
             overflow: hidden;
         }
 
         .da-editor__canvas {
             display: block;
             max-width: 100%;
-            max-height: 65vh;
+            max-height: 100%;
             object-fit: contain;
             cursor: grab;
         }
@@ -1270,6 +1354,16 @@
             font-family: ui-monospace, monospace;
         }
 
+        .da-editor__error {
+            margin: .5rem .9rem 0;
+            padding: .5rem .7rem;
+            background: var(--da-danger-bg);
+            border: 1px solid var(--da-danger-br);
+            border-radius: var(--da-radius-sm);
+            color: var(--da-danger);
+            font-size: .8rem;
+        }
+
         .da-editor__save-bar {
             display: flex;
             flex-wrap: wrap;
@@ -1279,6 +1373,7 @@
             padding: .8rem 1rem;
             background: var(--da-bg2);
             border-top: 1px solid var(--da-border);
+            flex-shrink: 0;
         }
 
         .da-editor__save-mode {
@@ -1467,9 +1562,19 @@
         .da-lb__stage {
             flex: 1;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: center;
             position: relative;
+            overflow: hidden;
+        }
+
+        .da-lb__image-stage {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             overflow: hidden;
         }
 
@@ -1513,8 +1618,151 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            flex: 1;
+            height: 100%;
+            min-width: 0;
+        }
+
+        .da-lb__preview {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             width: 100%;
             height: 100%;
+        }
+
+        .da-lb__pdf {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: rgba(255, 255, 255, .04);
+        }
+
+        .da-lb__nopreview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .9rem;
+            color: rgba(255, 255, 255, .5);
+        }
+
+        .da-lb__nopreview-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 96px;
+            height: 96px;
+            padding: 0 1.4rem;
+            border: 2px solid rgba(99, 102, 241, .4);
+            border-radius: 1rem;
+            background: rgba(99, 102, 241, .12);
+            color: #a5b4fc;
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .da-lb__nopreview-text {
+            font-size: .85rem;
+            text-align: center;
+            max-width: 22rem;
+        }
+
+        .da-lb__details {
+            flex-shrink: 0;
+            width: 340px;
+            max-width: 42%;
+            height: 100%;
+            overflow-y: auto;
+            background: rgba(15, 23, 42, .9);
+            backdrop-filter: blur(8px);
+            border-left: 1px solid rgba(255, 255, 255, .08);
+            padding: 0 1.1rem 1.1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .da-lb__details-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .1);
+            position: sticky;
+            top: 0;
+            background: rgba(15, 23, 42, .95);
+            z-index: 1;
+        }
+
+        .da-lb__details-title {
+            font-size: .95rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, .95);
+            word-break: break-word;
+            min-width: 0;
+        }
+
+        .da-lb__details-badge {
+            flex-shrink: 0;
+        }
+
+        .da-lb__details-list {
+            margin: 0;
+            padding: .5rem 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .da-lb__details-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: .6rem 0;
+            border-bottom: 1px dashed rgba(255, 255, 255, .08);
+            font-size: .8rem;
+        }
+
+        .da-lb__details-item dt {
+            color: rgba(255, 255, 255, .5);
+            flex-shrink: 0;
+            font-weight: 500;
+            min-width: 6rem;
+            text-transform: uppercase;
+            font-size: .68rem;
+            letter-spacing: .05em;
+            padding-top: .1rem;
+        }
+
+        .da-lb__details-item dd {
+            margin: 0;
+            text-align: right;
+            color: rgba(255, 255, 255, .85);
+            word-break: break-all;
+            min-width: 0;
+        }
+
+        .da-lb-mono {
+            font-family: ui-monospace, monospace;
+            font-size: .72rem;
+            color: #a5b4fc;
+        }
+
+        @media (max-width: 768px) {
+            .da-lb__stage {
+                flex-direction: column;
+            }
+
+            .da-lb__details {
+                width: 100%;
+                max-width: 100%;
+                border-left: none;
+                border-top: 1px solid rgba(255, 255, 255, .08);
+                flex: 1;
+            }
         }
 
         .da-lb__spinner {
@@ -1535,8 +1783,8 @@
         }
 
         .da-lb__img {
-            max-width: 90vw;
-            max-height: 75vh;
+            max-width: 100%;
+            max-height: 100%;
             object-fit: contain;
             border-radius: .5rem;
             transition: opacity .25s, transform .2s;
@@ -1577,6 +1825,20 @@
             opacity: .55;
         }
 
+        .da-lb__thumb--doc {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(99, 102, 241, .12);
+            color: #a5b4fc;
+            font-size: .66rem;
+            font-weight: 700;
+            letter-spacing: .02em;
+            padding: 0 .3rem;
+            text-transform: uppercase;
+            overflow: hidden;
+        }
+
         .da-lb__thumb:hover,
         .da-lb__thumb--active {
             border-color: #6366f1;
@@ -1585,7 +1847,7 @@
 
         .da-lb__zoom-bar {
             position: absolute;
-            bottom: 4.5rem;
+            bottom: 1.5rem;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -1647,4 +1909,4 @@
             gap: 4px;
         }
     </style>
-@endonce
+@endassets

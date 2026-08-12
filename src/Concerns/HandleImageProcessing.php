@@ -8,19 +8,20 @@ use Illuminate\Support\Str;
 trait HandleImageProcessing
 {
     /**
-     * Receive a base64-encoded PNG from the editor (crop/transform result),
+     * Receive a base64-encoded image from the editor (crop/transform result),
      * store it to disk, and replace the file at $index in $uploadedFiles.
      *
      * Called via wire:click from the editor "Save to Server" button.
      *
-     * @param  int     $index    Index in $this->uploadedFiles to replace
-     * @param  string  $dataUrl  PNG data URL (data:image/png;base64,...)
-     * @param  string  $mode     'replace' | 'add'
+     * @param  int  $index  Index in $this->uploadedFiles to replace
+     * @param  string  $dataUrl  Image data URL (data:image/png;base64,...)
+     * @param  string  $mode  'replace' | 'add'
      */
     public function saveProcessedImage(int $index, string $dataUrl, string $mode = 'replace'): void
     {
-        if (! str_starts_with($dataUrl, 'data:image/')) {
-            $this->errors[] = 'Invalid image data.';
+        if (! preg_match('#^data:image/(jpeg|png|webp|gif);base64,#', $dataUrl)) {
+            $this->errors[] = trans('wire-media::messages.invalid_image_data');
+
             return;
         }
 
@@ -28,18 +29,19 @@ trait HandleImageProcessing
             $stored = $this->storeDataUrl($dataUrl, $index);
 
             if (! $stored) {
-                $this->errors[] = 'Failed to save processed image.';
+                $this->errors[] = trans('wire-media::messages.save_processed_failed');
+
                 return;
             }
 
             if ($mode === 'replace' && isset($this->uploadedFiles[$index])) {
                 // Delete old file from storage
-                $old  = $this->uploadedFiles[$index];
+                $old = $this->uploadedFiles[$index];
                 $disk = $old['disk'] ?? $this->disk;
                 $path = $old['path'] ?? null;
 
-                if ($path && \Illuminate\Support\Facades\Storage::disk($disk)->exists($path)) {
-                    \Illuminate\Support\Facades\Storage::disk($disk)->delete($path);
+                if ($path && Storage::disk($disk)->exists($path)) {
+                    Storage::disk($disk)->delete($path);
                 }
 
                 $this->uploadedFiles[$index] = $stored;
@@ -48,37 +50,59 @@ trait HandleImageProcessing
                 $this->uploadedFiles[] = $stored;
             }
 
-            $this->editorOpen     = false;
-            $this->editorIndex    = null;
-            $this->editorDataUrl  = null;
+            $this->editorOpen = false;
+            $this->editorIndex = null;
 
             $this->dispatch('image-processed', file: $stored, mode: $mode);
 
         } catch (\Throwable $e) {
             report($e);
-            $this->errors[] = 'Error saving image: ' . $e->getMessage();
+            $this->errors[] = trans('wire-media::messages.save_processed_error', ['message' => $e->getMessage()]);
         }
     }
 
     /**
-     * Decode a data URL and store the raw PNG bytes to the configured disk.
+     * Decode a data URL, validate it against the component configuration,
+     * and store the raw image bytes to the configured disk.
+     *
+     * @throws \InvalidArgumentException When the data URL is malformed
+     * @throws \RuntimeException When validation fails (size / MIME)
      */
     protected function storeDataUrl(string $dataUrl, int $originalIndex): ?array
     {
-        // Strip header: "data:image/png;base64,"
-        [$header, $base64] = explode(',', $dataUrl, 2);
-        preg_match('/data:(image\/\w+);base64/', $header, $m);
-        $mime      = $m[1] ?? 'image/png';
+        if (! preg_match('#^data:(image/(jpeg|png|webp|gif));base64,(.*)$#s', $dataUrl, $m)) {
+            throw new \InvalidArgumentException(trans('wire-media::messages.invalid_editor_format'));
+        }
+
+        $mime = $m[1];
         $extension = match ($mime) {
             'image/jpeg' => 'jpg',
             'image/webp' => 'webp',
-            'image/gif'  => 'gif',
-            default      => 'png',
+            'image/gif' => 'gif',
+            default => 'png',
         };
 
-        $bytes    = base64_decode($base64);
-        $filename = Str::uuid() . '-edited.' . $extension;
-        $path     = rtrim($this->directory, '/') . '/' . $filename;
+        $bytes = base64_decode($m[3], true);
+
+        if ($bytes === false) {
+            throw new \InvalidArgumentException(trans('wire-media::messages.invalid_editor_data'));
+        }
+
+        $maxBytes = (int) ($this->maxSizeMb * 1024 * 1024);
+
+        if (strlen($bytes) > $maxBytes) {
+            throw new \RuntimeException(trans('wire-media::messages.editor_max_size', [
+                'max' => $this->maxSizeMb,
+                'actual' => round(strlen($bytes) / 1024 / 1024, 2),
+            ]));
+        }
+
+        if (! empty($this->acceptedMimeTypes) && ! $this->mimeIsAllowed($mime, $this->acceptedMimeTypes)) {
+            throw new \RuntimeException(trans('wire-media::messages.editor_mime_not_allowed', ['mime' => $mime]));
+        }
+
+        $filename = Str::uuid().'-edited.'.$extension;
+        $path = rtrim($this->directory, '/').'/'.$filename;
 
         Storage::disk($this->disk)->put($path, $bytes);
 
@@ -87,19 +111,19 @@ trait HandleImageProcessing
         $origBase = pathinfo($original, PATHINFO_FILENAME);
 
         return [
-            'original_name' => $origBase . '-edited.' . $extension,
-            'path'          => $path,
-            'disk'          => $this->disk,
-            'url'           => Storage::disk($this->disk)->url($path),
-            'size'          => strlen($bytes),
-            'size_human'    => $this->formatBytes(strlen($bytes)),
-            'mime'          => $mime,
-            'extension'     => $extension,
-            'is_image'      => true,
-            'is_pdf'        => false,
-            'is_document'   => false,
-            'is_existing'   => false,
-            'uploaded_at'   => now()->toIso8601String(),
+            'original_name' => $origBase.'-edited.'.$extension,
+            'path' => $path,
+            'disk' => $this->disk,
+            'url' => Storage::disk($this->disk)->url($path),
+            'size' => strlen($bytes),
+            'size_human' => $this->formatBytes(strlen($bytes)),
+            'mime' => $mime,
+            'extension' => $extension,
+            'is_image' => true,
+            'is_pdf' => false,
+            'is_document' => false,
+            'is_existing' => false,
+            'uploaded_at' => now()->toIso8601String(),
         ];
     }
 }

@@ -9,8 +9,7 @@ trait HandleFileValidation
     /**
      * Validate a single file against the component's configuration.
      *
-     * @param  TemporaryUploadedFile  $file
-     * @return array  Array of error messages (empty = valid)
+     * @return array Array of error messages (empty = valid)
      */
     protected function validateFile(TemporaryUploadedFile $file): array
     {
@@ -21,55 +20,60 @@ trait HandleFileValidation
 
         if ($file->getSize() > $maxBytes) {
             $errors[] = trans('wire-media::messages.max_size', [
-                'file'    => $file->getClientOriginalName(),
-                'max'     => $this->maxSizeMb,
-                'actual'  => round($file->getSize() / 1024 / 1024, 2),
+                'file' => $file->getClientOriginalName(),
+                'max' => $this->maxSizeMb,
+                'actual' => round($file->getSize() / 1024 / 1024, 2),
             ]);
         }
 
         // ── Extension validation ────────────────────────────────────────────
         if (! empty($this->acceptedExtensions)) {
             $extension = strtolower($file->getClientOriginalExtension());
-            $allowed   = array_map('strtolower', $this->acceptedExtensions);
+            $allowed = array_map('strtolower', $this->acceptedExtensions);
 
             if (! in_array($extension, $allowed, true)) {
                 $errors[] = trans('wire-media::messages.invalid_extension', [
-                    'file'      => $file->getClientOriginalName(),
+                    'file' => $file->getClientOriginalName(),
                     'extension' => $extension,
-                    'allowed'   => implode(', ', $allowed),
+                    'allowed' => implode(', ', $allowed),
                 ]);
             }
         }
 
         // ── MIME type validation ────────────────────────────────────────────
         if (! empty($this->acceptedMimeTypes)) {
-            $mime    = $file->getMimeType();
+            $mime = $file->getMimeType();
             $allowed = $this->acceptedMimeTypes;
 
-            $matched = false;
-            foreach ($allowed as $allowedMime) {
-                // Support wildcard MIME types like "image/*"
-                if (str_ends_with($allowedMime, '/*')) {
-                    $prefix = rtrim($allowedMime, '/*');
-                    if (str_starts_with($mime, $prefix . '/')) {
-                        $matched = true;
-                        break;
-                    }
-                } elseif ($allowedMime === $mime) {
-                    $matched = true;
-                    break;
-                }
-            }
-
-            if (! $matched) {
+            if (! $this->mimeIsAllowed($mime, $allowed)) {
                 $errors[] = trans('wire-media::messages.invalid_mime', [
-                    'file'    => $file->getClientOriginalName(),
-                    'mime'    => $mime,
+                    'file' => $file->getClientOriginalName(),
+                    'mime' => $mime,
                     'allowed' => implode(', ', $allowed),
                 ]);
             }
         }
 
         return $errors;
+    }
+
+    /**
+     * Determine whether a MIME type matches a list of allowed types.
+     * Supports wildcard MIME types like "image/*".
+     */
+    protected function mimeIsAllowed(string $mime, array $allowed): bool
+    {
+        foreach ($allowed as $allowedMime) {
+            if (str_ends_with($allowedMime, '/*')) {
+                $prefix = rtrim($allowedMime, '/*');
+                if (str_starts_with($mime, $prefix.'/')) {
+                    return true;
+                }
+            } elseif ($allowedMime === $mime) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
