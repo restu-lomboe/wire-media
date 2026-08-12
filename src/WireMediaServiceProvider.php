@@ -19,20 +19,14 @@ class WireMediaServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Tambahkan ini — share path JS ke semua view
-        \Illuminate\Support\Facades\View::share(
-            'wireMediaJsPath',
-            __DIR__ . '/../resources/js'
-        );
-
         Livewire::component('wire-media', FileUpload::class);
 
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'wire-media');
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'wire-media');
 
         AboutCommand::add('WireMedia', fn () => [
-            'Version'  => '2.0.0',
-            'Vendor'   => 'developerawam',
+            'Version' => '2.0.0',
+            'Vendor' => 'developerawam',
             'Features' => 'Upload · Crop · Zoom · Rotate · Flip · Lightbox · Dark Mode',
         ]);
 

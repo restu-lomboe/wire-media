@@ -1,61 +1,61 @@
 {
-    "name": "developerawam/wire-media",
-    "description": "Premium Livewire media upload & image editor for Laravel 12. Upload, crop, zoom, rotate, flip, fullscreen lightbox, dark mode. Zero external JS dependencies.",
-    "keywords": [
-        "laravel",
-        "livewire",
-        "file-upload",
-        "image-editor",
-        "crop",
-        "media",
-        "wire-media"
-    ],
-    "type": "library",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "developerawam",
-            "email": "info@developerawam.com",
-            "role": "Developer"
-        }
-    ],
-    "require": {
-        "php": "^8.2",
-        "illuminate/support": "^12.0",
-        "illuminate/filesystem": "^12.0",
-        "illuminate/validation": "^12.0",
-        "livewire/livewire": "^3.0 || ^4.0"
-    },
-    "require-dev": {
-        "orchestra/testbench": "^10.0",
-        "pestphp/pest": "^3.0",
-        "pestphp/pest-plugin-laravel": "^3.0",
-        "laravel/pint": "^1.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "Developerawam\\WireMedia\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "Developerawam\\WireMedia\\Tests\\": "tests/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "Developerawam\\WireMedia\\WireMediaServiceProvider"
-            ]
-        }
-    },
-    "scripts": {
-        "test": "vendor/bin/pest",
-        "format": "vendor/bin/pint"
-    },
-    "config": {
-        "sort-packages": true
-    },
-    "minimum-stability": "stable",
-    "prefer-stable": true
+  "name": "developerawam/wire-media",
+  "description": "Premium Livewire media upload & image editor for Laravel 12. Upload, crop, zoom, rotate, flip, fullscreen lightbox, dark mode. Zero external JS dependencies.",
+  "keywords": [
+    "laravel",
+    "livewire",
+    "file-upload",
+    "image-editor",
+    "crop",
+    "media",
+    "wire-media"
+  ],
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "developerawam",
+      "email": "info@developerawam.com",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": "^8.2",
+    "illuminate/support": "^12.0||^13.0",
+    "illuminate/filesystem": "^12.0||^13.0",
+    "illuminate/validation": "^12.0 || ^13.0",
+    "livewire/livewire": "^3.0 || ^4.0"
+  },
+  "require-dev": {
+    "orchestra/testbench": "^10.0",
+    "pestphp/pest": "^3.0",
+    "pestphp/pest-plugin-laravel": "^3.0",
+    "laravel/pint": "^1.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Developerawam\\WireMedia\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Developerawam\\WireMedia\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Developerawam\\WireMedia\\WireMediaServiceProvider"
+      ]
+    }
+  },
+  "scripts": {
+    "test": "vendor/bin/pest",
+    "format": "vendor/bin/pint"
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
 }

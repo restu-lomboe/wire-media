@@ -9,9 +9,6 @@ trait HandleFileStorage
 {
     /**
      * Store an uploaded file and return its metadata array.
-     *
-     * @param  TemporaryUploadedFile  $file
-     * @return array|null
      */
     protected function storeFile(TemporaryUploadedFile $file): ?array
     {
@@ -22,23 +19,23 @@ trait HandleFileStorage
                 return null;
             }
 
-            $mime      = $file->getMimeType();
+            $mime = $file->getMimeType();
             $extension = strtolower($file->getClientOriginalExtension());
 
             return [
                 'original_name' => $file->getClientOriginalName(),
-                'path'          => $path,
-                'disk'          => $this->disk,
-                'url'           => Storage::disk($this->disk)->url($path),
-                'size'          => $file->getSize(),
-                'size_human'    => $this->formatBytes($file->getSize()),
-                'mime'          => $mime,
-                'extension'     => $extension,
-                'is_image'      => str_starts_with($mime, 'image/'),
-                'is_pdf'        => ($mime === 'application/pdf' || $extension === 'pdf'),
-                'is_document'   => $this->isDocument($mime, $extension),
-                'is_existing'   => false,
-                'uploaded_at'   => now()->toIso8601String(),
+                'path' => $path,
+                'disk' => $this->disk,
+                'url' => Storage::disk($this->disk)->url($path),
+                'size' => $file->getSize(),
+                'size_human' => $this->formatBytes($file->getSize()),
+                'mime' => $mime,
+                'extension' => $extension,
+                'is_image' => str_starts_with($mime, 'image/'),
+                'is_pdf' => ($mime === 'application/pdf' || $extension === 'pdf'),
+                'is_document' => $this->isDocument($mime, $extension),
+                'is_existing' => false,
+                'uploaded_at' => now()->toIso8601String(),
             ];
         } catch (\Throwable $e) {
             report($e);
@@ -57,9 +54,9 @@ trait HandleFileStorage
         }
 
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $pow   = min(floor(log($bytes, 1024)), count($units) - 1);
+        $pow = min(floor(log($bytes, 1024)), count($units) - 1);
 
-        return round($bytes / pow(1024, $pow), $precision) . ' ' . $units[$pow];
+        return round($bytes / pow(1024, $pow), $precision).' '.$units[$pow];
     }
 
     /**
