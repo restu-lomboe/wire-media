@@ -80,7 +80,7 @@
                     <button type="button" class="da-card__thumb" @click="openLightbox({{ $idx }})"
                         title="{{ trans('wire-media::messages.preview_info') }}">
                         @if ($showPreview && $isImg)
-                            <img src="{{ $file['url'] }}" alt="{{ $file['original_name'] }}" class="da-card__img"
+                            <img src="{{ $file['thumbnail_url'] ?? $file['url'] }}" alt="{{ $file['original_name'] }}" class="da-card__img"
                                 loading="lazy">
                             {{-- Hover overlay --}}
                             <span class="da-card__hover-icons">
@@ -100,6 +100,9 @@
                         <span class="da-badge {{ $isEx ? 'da-badge--ex' : 'da-badge--new' }}">
                             {{ $isEx ? trans('wire-media::messages.badge_existing') : trans('wire-media::messages.badge_new') }}
                         </span>
+                        @if (! empty($file['thumbnail']))
+                            <span class="da-badge da-badge--opt">{{ trans('wire-media::messages.badge_optimized') }}</span>
+                        @endif
                     </button>
 
                     {{-- Card body --}}
@@ -277,7 +280,7 @@
     {{-- ══════════════════════ IMAGE EDITOR ════════════════════════════════════ --}}
     @if ($editorFile)
         <div class="da-editor"
-            x-data="daImageEditor(@js($editorFile['url']), {{ $editorIndex }}, @js($editorFile['mime'] ?? 'image/png'), @js($editorFile['original_name'] ?? 'edited-image'))"
+            x-data="daImageEditor(@js($editorFile['url']), {{ $editorIndex }}, @js($editorFile['mime'] ?? 'image/png'), @js($editorFile['original_name'] ?? 'edited-image'), @json($useImageLibrary))"
             x-init="initEditor()" wire:ignore>
             {{-- Toolbar --}}
             <div class="da-editor__toolbar">
@@ -371,6 +374,57 @@
                         </svg>
                     </button>
                 </div>
+
+                @if ($useImageLibrary)
+                    <div class="da-editor__toolbar-group">
+                        <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_library') }}</span>
+                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
+                            @click="libraryTransform('grayscale')"
+                            title="{{ trans('wire-media::messages.library_grayscale') }}">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <line x1="3" y1="12" x2="21" y2="12" />
+                            </svg>
+                        </button>
+                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
+                            @click="libraryTransform('blur', { level: 5 })"
+                            title="{{ trans('wire-media::messages.library_blur') }}">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9" />
+                                <circle cx="12" cy="12" r="4" fill="currentColor" />
+                            </svg>
+                        </button>
+                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
+                            @click="libraryTransform('sharpen', { level: 10 })"
+                            title="{{ trans('wire-media::messages.library_sharpen') }}">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l2.4 4.8L19 9l-4.6 2.2L12 16l-2.4-4.8L5 9l4.6-2.2z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="da-editor__toolbar-group">
+                        <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_convert') }}</span>
+                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
+                            @click="libraryTransform('convert', { format: 'webp', quality: 85 })"
+                            title="{{ trans('wire-media::messages.library_convert_webp') }}">
+                            <span class="da-tool-btn__text">WebP</span>
+                        </button>
+                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
+                            @click="libraryTransform('convert', { format: 'jpeg', quality: 85 })"
+                            title="{{ trans('wire-media::messages.library_convert_jpeg') }}">
+                            <span class="da-tool-btn__text">JPG</span>
+                        </button>
+                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
+                            @click="libraryTransform('convert', { format: 'png' })"
+                            title="{{ trans('wire-media::messages.library_convert_png') }}">
+                            <span class="da-tool-btn__text">PNG</span>
+                        </button>
+                    </div>
+                @endif
 
                 <div class="da-editor__toolbar-group">
                     <button type="button" class="da-tool-btn" @click="resetAll()"
@@ -537,12 +591,14 @@
             }));
 
             /* ── Alpine component: daImageEditor ─────────────────────────────────── */
-            Alpine.data('daImageEditor', (src, index, mime, originalName) => ({
+            Alpine.data('daImageEditor', (src, index, mime, originalName, libraryMode) => ({
                 src: src,
                 originalSrc: src,
                 index: index,
                 mime: mime,
                 originalName: originalName,
+                libraryMode: libraryMode,
+                libraryBusy: false,
                 proc: null,
                 cropMode: false,
                 hasCrop: false,
@@ -612,6 +668,33 @@
                     this.canvasReady = false;
                     this.src = this.originalSrc;
                     this.$nextTick(() => this.initEditor());
+                },
+
+                async libraryTransform(transform, params = {}) {
+                    if (!this.libraryMode || !this.proc || this.libraryBusy) return;
+                    this.libraryBusy = true;
+                    this.errorMessage = '';
+                    try {
+                        const dataUrl = this.proc.exportDataURL(1, this.mime);
+                        const result = await this.$wire.libraryTransformDataUrl(dataUrl, transform, params);
+                        if (!result) {
+                            this.errorMessage = '{{ trans('wire-media::messages.editor_transform_failed') }}';
+                            return;
+                        }
+                        const m = result.match(/^data:(image\/[a-z]+);base64,/);
+                        if (m) this.mime = m[1];
+                        // Reload editor with the transformed result
+                        this.proc.destroy();
+                        this.cropMode = false;
+                        this.hasCrop = false;
+                        this.canvasReady = false;
+                        this.src = result;
+                        this.$nextTick(() => this.initEditor());
+                    } catch (e) {
+                        this.errorMessage = '{{ trans('wire-media::messages.editor_transform_failed') }}';
+                    } finally {
+                        this.libraryBusy = false;
+                    }
                 },
 
                 _baseName() {
@@ -942,6 +1025,15 @@
             position: absolute;
             top: .4rem;
             left: .4rem;
+        }
+
+        .da-badge--opt {
+            top: .4rem;
+            right: .4rem;
+            left: auto;
+            background: var(--da-accent-bg);
+            color: var(--da-accent);
+            border: 1px solid var(--da-accent-br);
         }
 
         .da-badge--inline {

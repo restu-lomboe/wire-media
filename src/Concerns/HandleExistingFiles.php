@@ -131,6 +131,8 @@ trait HandleExistingFiles
             'size' => $size,
             'size_human' => $meta['size_human'] ?? $this->formatBytes((int) $size),
             'url' => $meta['url'] ?? Storage::disk($disk)->url($path),
+            'thumbnail' => $meta['thumbnail'] ?? null,
+            'thumbnail_url' => $meta['thumbnail_url'] ?? null,
             'is_image' => $meta['is_image'] ?? str_starts_with($mime, 'image/'),
             'is_document' => $meta['is_document'] ?? $this->isDocument($mime, $extension),
             'is_pdf' => ($mime === 'application/pdf' || $extension === 'pdf'),

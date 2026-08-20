@@ -55,6 +55,40 @@ php artisan vendor:publish --tag=wire-media-assets
 
 > **Note:** The published config (`config/wire-media.php`) sets the **defaults** for `disk`, `directory`, `max-size-mb`, `max-files`, accepted types and UI options. Any prop passed to `<livewire:wire-media>` overrides its config default; props left unset fall back to the config value.
 
+### Optional: Image Library Mode
+
+By default WireMedia stores images **as uploaded**. You can optionally enable automatic image processing (resize, format conversion, optimisation & thumbnail generation) powered by [Intervention Image](https://intervention.io):
+
+```bash
+composer require intervention/image
+```
+
+Then set the `use_image_library` config to `true`:
+
+```env
+WIRE_MEDIA_USE_IMAGE_LIBRARY=true
+```
+
+| Config key                                     | Default      | Description                                     |
+|------------------------------------------------|--------------|-------------------------------------------------|
+| `WIRE_MEDIA_IMAGE_DRIVER`                      | `gd`         | `gd` or `imagick`                               |
+| `WIRE_MEDIA_IMAGE_MAX_WIDTH` / `MAX_HEIGHT`    | `1920/1080`  | Scale down larger images to this bound          |
+| `WIRE_MEDIA_IMAGE_QUALITY`                     | `85`         | Output quality (JPEG/WebP, 1–100)               |
+| `WIRE_MEDIA_IMAGE_FORMAT`                      | `webp`       | Output format: `webp`, `jpg`, `png`, `gif`      |
+
+The processor automatically:
+- **Resizes** oversized images down (`scaleDown`, never upscales)
+- **Converts** to the target format with quality compression
+- **Generates a WebP thumbnail variant** (`-thumb`, 400×400, used in the grid)
+- Applies to **uploads and editor saves**; thumbnails are removed together with their original file
+
+When image-library mode is on, the **image editor toolbar** additionally exposes server-side
+Intervention transforms: **grayscale**, **blur**, **sharpen**, and one-click **convert**
+(WebP / JPG / PNG). Edits are re-encoded server-side so they stay optimised.
+
+> **Fallback:** when the flag is off, or `intervention/image` is not installed,
+> WireMedia silently behaves like the default mode — nothing breaks.
+
 ---
 
 ## 🚀 Basic Usage
@@ -84,6 +118,7 @@ php artisan vendor:publish --tag=wire-media-assets
 | `existing-files`      | `mixed`   | `null`      | Pre-load files (array of paths, metadata, or Model)       |
 | `model-attribute`     | `string`  | `null`      | Model column when `existing-files` is an Eloquent Model   |
 | `dark-mode`           | `bool`    | `false`     | Force dark mode (also auto-detects OS preference)         |
+| `use-image-library`   | `bool`    | `false`     | Enable image processing for this instance (requires Intervention Image) |
 
 ---
 
@@ -384,20 +419,26 @@ Livewire::dispatch('file-uploaded', [
 ```php
 [
     'original_name' => 'photo.jpg',
-    'path'          => 'uploads/uuid.jpg',
+    'path'          => 'uploads/uuid.webp',
     'disk'          => 'public',
-    'url'           => 'https://app.test/storage/uploads/uuid.jpg',
+    'url'           => 'https://app.test/storage/uploads/uuid.webp',
     'size'          => 204800,
     'size_human'    => '200 KB',
-    'mime'          => 'image/jpeg',
-    'extension'     => 'jpg',
+    'mime'          => 'image/webp',
+    'extension'     => 'webp',
     'is_image'      => true,
     'is_pdf'        => false,
     'is_document'   => false,
     'is_existing'   => false,
+    'thumbnail'     => 'uploads/uuid-thumb.webp', // only in image-library mode
+    'thumbnail_url' => 'https://app.test/storage/uploads/uuid-thumb.webp',
     'uploaded_at'   => '2025-01-01T00:00:00+00:00',
 ]
 ```
+
+> In image-library mode, the original image is replaced by the optimised variant and
+> `path`/`url`/`mime`/`extension` reflect the **processed** file, with a `thumbnail`
+> variant generated for the grid.
 
 ---
 

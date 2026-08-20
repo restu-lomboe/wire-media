@@ -267,6 +267,7 @@ class LightboxManager {
             preview.innerHTML = '';
             const img = document.createElement('img');
             img.className   = 'da-lb__img';
+            img.id          = 'da-lb-img';
             img.alt         = file.original_name;
             img.draggable   = false;
             img.onload      = () => { spinner.style.display = 'none'; img.style.opacity = '1'; };

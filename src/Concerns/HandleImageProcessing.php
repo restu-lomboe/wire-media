@@ -35,14 +35,11 @@ trait HandleImageProcessing
             }
 
             if ($mode === 'replace' && isset($this->uploadedFiles[$index])) {
-                // Delete old file from storage
+                // Delete old file (+ thumbnail) from storage
                 $old = $this->uploadedFiles[$index];
                 $disk = $old['disk'] ?? $this->disk;
-                $path = $old['path'] ?? null;
 
-                if ($path && Storage::disk($disk)->exists($path)) {
-                    Storage::disk($disk)->delete($path);
-                }
+                $this->deleteStoredFile($old, $disk);
 
                 $this->uploadedFiles[$index] = $stored;
             } else {
@@ -101,10 +98,33 @@ trait HandleImageProcessing
             throw new \RuntimeException(trans('wire-media::messages.editor_mime_not_allowed', ['mime' => $mime]));
         }
 
+        // Library mode: optimise the edited image too (resize, convert, thumbnail).
+        $optimized = null;
+
+        if ($this->imageLibraryAvailable()) {
+            $processed = $this->processImageBytes($bytes, $mime);
+
+            if ($processed) {
+                $bytes = $processed['bytes'];
+                $mime = $processed['mime'];
+                $extension = $this->extensionForMime($mime);
+                $optimized = $processed;
+            }
+        }
+
         $filename = Str::uuid().'-edited.'.$extension;
         $path = rtrim($this->directory, '/').'/'.$filename;
 
         Storage::disk($this->disk)->put($path, $bytes);
+
+        $thumbnailPath = null;
+        $thumbnailUrl = null;
+
+        if (($optimized['thumbnail_bytes'] ?? null) !== null) {
+            $thumbnailPath = rtrim($this->directory, '/').'/'.Str::uuid().'-edited-thumb.webp';
+            Storage::disk($this->disk)->put($thumbnailPath, $optimized['thumbnail_bytes']);
+            $thumbnailUrl = Storage::disk($this->disk)->url($thumbnailPath);
+        }
 
         // Derive original name
         $original = $this->uploadedFiles[$originalIndex]['original_name'] ?? 'edited-image';
@@ -123,6 +143,8 @@ trait HandleImageProcessing
             'is_pdf' => false,
             'is_document' => false,
             'is_existing' => false,
+            'thumbnail' => $thumbnailPath,
+            'thumbnail_url' => $thumbnailUrl,
             'uploaded_at' => now()->toIso8601String(),
         ];
     }

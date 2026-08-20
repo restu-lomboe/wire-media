@@ -15,6 +15,7 @@ return [
     'download' => 'Download',
     'badge_existing' => 'Existing',
     'badge_new' => 'New',
+    'badge_optimized' => 'Optimized',
     'fullscreen' => 'Fullscreen',
     'click_fullscreen' => 'Click to fullscreen',
     'edit_image' => 'Edit image',
@@ -44,6 +45,15 @@ return [
     'flip_v' => 'Flip vertical',
     'crop_select' => 'Select crop area',
     'crop_apply' => 'Apply crop',
+    'editor_library' => 'Library',
+    'editor_convert' => 'Convert',
+    'library_grayscale' => 'Grayscale',
+    'library_blur' => 'Blur',
+    'library_sharpen' => 'Sharpen',
+    'library_convert_webp' => 'Convert to WebP',
+    'library_convert_jpeg' => 'Convert to JPEG',
+    'library_convert_png' => 'Convert to PNG',
+    'editor_transform_failed' => 'Image transform failed.',
 
     // Editor save bar
     'save_replace' => 'Replace original',

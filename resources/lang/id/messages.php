@@ -15,6 +15,7 @@ return [
     'download' => 'Unduh',
     'badge_existing' => 'Lama',
     'badge_new' => 'Baru',
+    'badge_optimized' => 'Optimasi',
     'fullscreen' => 'Layar penuh',
     'click_fullscreen' => 'Klik untuk layar penuh',
     'edit_image' => 'Edit gambar',
@@ -44,6 +45,15 @@ return [
     'flip_v' => 'Balik vertikal',
     'crop_select' => 'Pilih area crop',
     'crop_apply' => 'Terapkan crop',
+    'editor_library' => 'Library',
+    'editor_convert' => 'Konversi',
+    'library_grayscale' => 'Grayscale',
+    'library_blur' => 'Blur',
+    'library_sharpen' => 'Tajamkan',
+    'library_convert_webp' => 'Konversi ke WebP',
+    'library_convert_jpeg' => 'Konversi ke JPEG',
+    'library_convert_png' => 'Konversi ke PNG',
+    'editor_transform_failed' => 'Transformasi gambar gagal.',
 
     // Editor save bar
     'save_replace' => 'Ganti file asli',

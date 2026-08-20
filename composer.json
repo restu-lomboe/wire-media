@@ -27,10 +27,14 @@
     "livewire/livewire": "^3.0 || ^4.0"
   },
   "require-dev": {
+    "intervention/image": "^4.0",
     "orchestra/testbench": "^10.0",
     "pestphp/pest": "^3.0",
     "pestphp/pest-plugin-laravel": "^3.0",
     "laravel/pint": "^1.0"
+  },
+  "suggest": {
+    "intervention/image": "Required for the image library mode (resize, convert, optimize & thumbnails). Set WIRE_MEDIA_USE_IMAGE_LIBRARY=true after installing."
   },
   "autoload": {
     "psr-4": {
@@ -54,7 +58,11 @@
     "format": "vendor/bin/pint"
   },
   "config": {
-    "sort-packages": true
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true,
+      "pestphp/pest-plugin-laravel": true
+    }
   },
   "minimum-stability": "stable",
   "prefer-stable": true
