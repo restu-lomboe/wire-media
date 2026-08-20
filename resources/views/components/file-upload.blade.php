@@ -378,8 +378,8 @@
                 @if ($useImageLibrary)
                     <div class="da-editor__toolbar-group">
                         <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_library') }}</span>
-                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
-                            @click="libraryTransform('grayscale')"
+                        <button type="button" class="da-tool-btn" :class="{ 'da-tool-btn--active': libTransform === 'grayscale' }"
+                            @click="openLibTransform('grayscale')"
                             title="{{ trans('wire-media::messages.library_grayscale') }}">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -387,8 +387,8 @@
                                 <line x1="3" y1="12" x2="21" y2="12" />
                             </svg>
                         </button>
-                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
-                            @click="libraryTransform('blur', { level: 5 })"
+                        <button type="button" class="da-tool-btn" :class="{ 'da-tool-btn--active': libTransform === 'blur' }"
+                            @click="openLibTransform('blur')"
                             title="{{ trans('wire-media::messages.library_blur') }}">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -396,8 +396,8 @@
                                 <circle cx="12" cy="12" r="4" fill="currentColor" />
                             </svg>
                         </button>
-                        <button type="button" class="da-tool-btn" :disabled="libraryBusy"
-                            @click="libraryTransform('sharpen', { level: 10 })"
+                        <button type="button" class="da-tool-btn" :class="{ 'da-tool-btn--active': libTransform === 'sharpen' }"
+                            @click="openLibTransform('sharpen')"
                             title="{{ trans('wire-media::messages.library_sharpen') }}">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -459,6 +459,27 @@
                 <div class="da-editor__canvas-hint" x-show="!canvasReady">
                     <div class="da-spin-ring"></div>
                 </div>
+
+                @if ($useImageLibrary)
+                    <div class="da-editor__libcard" x-show="libTransform" x-cloak>
+                        <div class="da-editor__libcard-head">
+                            <span class="da-editor__libcard-title" x-text="libTransformLabel"></span>
+                            <span class="da-editor__libcard-val" x-text="libValue + '%'"></span>
+                        </div>
+                        <input type="range" min="0" max="100" step="1" x-model="libValue" @input="_previewLib()"
+                            class="da-editor__range" :title="libTransformLabel">
+                        <div class="da-editor__libcard-actions">
+                            <button type="button" class="da-editor__libcard-btn da-editor__libcard-btn--cancel"
+                                @click="cancelLibTransform()">
+                                {{ trans('wire-media::messages.library_cancel') }}
+                            </button>
+                            <button type="button" class="da-editor__libcard-btn da-editor__libcard-btn--apply"
+                                @click="applyLibTransform()">
+                                {{ trans('wire-media::messages.library_apply') }}
+                            </button>
+                        </div>
+                    </div>
+                @endif
             </div>
 
             {{-- Keyboard hint --}}
@@ -599,6 +620,8 @@
                 originalName: originalName,
                 libraryMode: libraryMode,
                 libraryBusy: false,
+                libTransform: null,
+                libValue: 0,
                 proc: null,
                 cropMode: false,
                 hasCrop: false,
@@ -607,6 +630,15 @@
                 saving: false,
                 canvasReady: false,
                 errorMessage: '',
+
+                get libTransformLabel() {
+                    const labels = {
+                        grayscale: '{{ trans('wire-media::messages.library_grayscale') }}',
+                        blur: '{{ trans('wire-media::messages.library_blur') }}',
+                        sharpen: '{{ trans('wire-media::messages.library_sharpen') }}',
+                    };
+                    return labels[this.libTransform] || '';
+                },
 
                 initEditor() {
                     this.errorMessage = '';
@@ -660,6 +692,9 @@
 
                 resetAll() {
                     if (!this.proc) return;
+                    this.proc.setFilter(null);
+                    this.proc.setSharpen(0);
+                    this.libTransform = null;
                     // Restore the true original image (undoes crops too)
                     this.proc.destroy();
                     this.cropMode = false;
@@ -695,6 +730,53 @@
                     } finally {
                         this.libraryBusy = false;
                     }
+                },
+
+                openLibTransform(transform) {
+                    if (!this.libraryMode || !this.proc) return;
+                    this.cancelLibTransform();
+                    this.libTransform = transform;
+                    this.libValue = 0;
+                    this._previewLib();
+                },
+
+                _previewLib() {
+                    if (!this.proc || !this.libTransform) return;
+                    const v = this.libValue;
+                    if (this.libTransform === 'grayscale') {
+                        this.proc.setFilter(`grayscale(${v}%)`);
+                    } else if (this.libTransform === 'blur') {
+                        // Map 0-100% to a blur radius 0-10px
+                        const px = Math.max(0, Math.min(10, Math.round(v / 10)));
+                        this.proc.setFilter(`blur(${px}px)`);
+                    } else if (this.libTransform === 'sharpen') {
+                        this.proc.setSharpen(v);
+                    }
+                },
+
+                applyLibTransform() {
+                    if (!this.proc || !this.libTransform) return;
+                    try {
+                        const dataUrl = this.proc.exportDataURL(1, this.mime);
+                        this.proc.setFilter(null);
+                        this.proc.setSharpen(0);
+                        this.libTransform = null;
+                        this.cropMode = false;
+                        this.hasCrop = false;
+                        this.canvasReady = false;
+                        this.proc.destroy();
+                        this.src = dataUrl;
+                        this.$nextTick(() => this.initEditor());
+                    } catch (e) {
+                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
+                    }
+                },
+
+                cancelLibTransform() {
+                    if (!this.proc) return;
+                    this.proc.setFilter(null);
+                    this.proc.setSharpen(0);
+                    this.libTransform = null;
                 },
 
                 _baseName() {
@@ -1396,6 +1478,96 @@
 
         .da-tool-btn__text {
             font-size: .78rem;
+        }
+
+        .da-editor__range {
+            width: 100%;
+            accent-color: var(--da-accent);
+            cursor: pointer;
+        }
+
+        .da-editor__libcard {
+            position: absolute;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 260px;
+            padding: .85rem 1rem;
+            background: var(--da-bg);
+            border: 1px solid var(--da-border);
+            border-radius: .75rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+        }
+
+        .da-editor__libcard-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+        }
+
+        .da-editor__libcard-title {
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--da-text2);
+        }
+
+        .da-editor__libcard-val {
+            font-size: .85rem;
+            font-weight: 800;
+            color: var(--da-accent);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .da-editor__libcard-actions {
+            display: flex;
+            gap: .5rem;
+        }
+
+        .da-editor__libcard-btn {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .3rem;
+            padding: .45rem .6rem;
+            border-radius: .45rem;
+            font-size: .8rem;
+            font-weight: 600;
+            border: 1px solid var(--da-border);
+            background: var(--da-bg2);
+            color: var(--da-text2);
+            cursor: pointer;
+            transition: all .12s;
+        }
+
+        .da-editor__libcard-btn:hover {
+            border-color: var(--da-accent);
+            color: var(--da-accent);
+        }
+
+        .da-editor__libcard-btn--apply {
+            background: var(--da-accent);
+            border-color: var(--da-accent);
+            color: #fff;
+        }
+
+        .da-editor__libcard-btn--apply:hover {
+            background: var(--da-accent-dk);
+            border-color: var(--da-accent-dk);
+            color: #fff;
+        }
+
+        .da-editor__libcard-btn--cancel:hover {
+            border-color: var(--da-danger);
+            color: var(--da-danger);
+            background: var(--da-danger-bg);
         }
 
         .da-editor__canvas-wrap {

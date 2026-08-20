@@ -50,6 +50,8 @@ return [
     'library_grayscale' => 'Grayscale',
     'library_blur' => 'Blur',
     'library_sharpen' => 'Sharpen',
+    'library_apply' => 'Apply',
+    'library_cancel' => 'Cancel',
     'library_convert_webp' => 'Convert to WebP',
     'library_convert_jpeg' => 'Convert to JPEG',
     'library_convert_png' => 'Convert to PNG',

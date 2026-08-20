@@ -50,6 +50,8 @@ return [
     'library_grayscale' => 'Grayscale',
     'library_blur' => 'Blur',
     'library_sharpen' => 'Tajamkan',
+    'library_apply' => 'Terapkan',
+    'library_cancel' => 'Batal',
     'library_convert_webp' => 'Konversi ke WebP',
     'library_convert_jpeg' => 'Konversi ke JPEG',
     'library_convert_png' => 'Konversi ke PNG',

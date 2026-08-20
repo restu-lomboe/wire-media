@@ -27,6 +27,10 @@ class ImageProcessor {
         this.flipH = false;
         this.flipV = false;
 
+        // Library filter state (live preview)
+        this.filter = null;   // CSS filter string, e.g. 'grayscale(50%)'
+        this.sharpen = 0;     // sharpen intensity 0..100
+
         // Crop state
         this.cropMode = false;
         this.cropStart = null; // {x, y} in canvas coords
@@ -90,12 +94,15 @@ class ImageProcessor {
 
     redraw() {
         if (!this._ready) return;
-        const { ctx, canvas, zoom, rotation, flipH, flipV, panOffset } = this;
+        const { ctx, canvas, zoom, rotation, flipH, flipV, panOffset, filter } = this;
         const w = canvas.width,
             h = canvas.height;
 
         ctx.clearRect(0, 0, w, h);
         ctx.save();
+
+        // Live library filter preview (grayscale / blur)
+        if (filter) ctx.filter = filter;
 
         // Center + pan + zoom
         ctx.translate(w / 2 + panOffset.x, h / 2 + panOffset.y);
@@ -106,10 +113,57 @@ class ImageProcessor {
         ctx.drawImage(this.img, -w / 2, -h / 2, w, h);
         ctx.restore();
 
+        // Sharpen live preview (convolution on displayed pixels)
+        if (this.sharpen > 0) {
+            this._applySharpen(this.canvas, this.sharpen / 100);
+        }
+
         // Draw crop overlay
         if (this.cropMode && this.cropRect) {
             this._drawCropOverlay();
         }
+    }
+
+    /**
+     * Apply a 3×3 convolution sharpen kernel to the given canvas pixels,
+     * blended with the original by `strength` (0..1).
+     * @param {HTMLCanvasElement} target
+     * @param {number} strength
+     */
+    _applySharpen(target, strength) {
+        const ctx = target.getContext("2d");
+        const w = target.width,
+            h = target.height;
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const src = imgData.data;
+        const out = ctx.createImageData(w, h);
+        const dst = out.data;
+
+        const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+        const t = Math.max(0, Math.min(1, strength));
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const centerIdx = (y * w + x) * 4;
+
+                for (let c = 0; c < 3; c++) {
+                    let acc = 0;
+                    for (let ky = -1; ky <= 1; ky++) {
+                        for (let kx = -1; kx <= 1; kx++) {
+                            const px = Math.min(w - 1, Math.max(0, x + kx));
+                            const py = Math.min(h - 1, Math.max(0, y + ky));
+                            const idx = (py * w + px) * 4 + c;
+                            acc += src[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
+                        }
+                    }
+                    const oIdx = centerIdx + c;
+                    dst[oIdx] = Math.round(src[oIdx] * (1 - t) + acc * t);
+                }
+                dst[centerIdx + 3] = src[centerIdx + 3];
+            }
+        }
+
+        ctx.putImageData(out, 0, 0);
     }
 
     _drawCropOverlay() {
@@ -131,10 +185,13 @@ class ImageProcessor {
         ctx.rect(r.x, r.y, r.w, r.h);
         ctx.clip();
 
-        const { zoom, rotation, flipH, flipV, panOffset } = this;
+        const { zoom, rotation, flipH, flipV, panOffset, filter } = this;
         ctx.translate(w / 2 + panOffset.x, h / 2 + panOffset.y);
         ctx.scale((flipH ? -1 : 1) * zoom, (flipV ? -1 : 1) * zoom);
         ctx.rotate((rotation * Math.PI) / 180);
+
+        if (filter) ctx.filter = filter;
+
         ctx.drawImage(this.img, -w / 2, -h / 2, w, h);
         ctx.restore();
 
@@ -331,7 +388,27 @@ class ImageProcessor {
         this.panOffset = { x: 0, y: 0 };
         this.cropMode = false;
         this.cropRect = null;
+        this.filter = null;
+        this.sharpen = 0;
         this.canvas.style.cursor = "";
+        this.redraw();
+    }
+
+    /**
+     * Set a live CSS filter preview (e.g. `grayscale(50%)`, `blur(3px)`).
+     * @param {string|null} cssFilter
+     */
+    setFilter(cssFilter) {
+        this.filter = cssFilter || null;
+        this.redraw();
+    }
+
+    /**
+     * Set live sharpen preview intensity (0..100).
+     * @param {number} value
+     */
+    setSharpen(value) {
+        this.sharpen = Math.max(0, Math.min(100, value));
         this.redraw();
     }
 
@@ -457,6 +534,9 @@ class ImageProcessor {
             (flipV ? -1 : 1) * zoom * effScale * outScale,
         );
         octx.rotate((rotation * Math.PI) / 180);
+
+        if (this.filter) octx.filter = this.filter;
+
         octx.drawImage(
             this.img,
             -this.canvas.width / 2,
@@ -465,6 +545,10 @@ class ImageProcessor {
             this.canvas.height,
         );
         octx.restore();
+
+        if (this.sharpen > 0) {
+            this._applySharpen(out, this.sharpen / 100);
+        }
 
         return out.toDataURL(exportMime);
     }

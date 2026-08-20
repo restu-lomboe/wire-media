@@ -83,8 +83,10 @@ The processor automatically:
 - Applies to **uploads and editor saves**; thumbnails are removed together with their original file
 
 When image-library mode is on, the **image editor toolbar** additionally exposes server-side
-Intervention transforms: **grayscale**, **blur**, **sharpen**, and one-click **convert**
-(WebP / JPG / PNG). Edits are re-encoded server-side so they stay optimised.
+Intervention transforms: **grayscale**, **blur**, and **sharpen** open a 0–100% strength slider
+with **Apply** / **Cancel** — the canvas previews the effect live, Apply bakes it into the image
+and Cancel reverts — plus one-click **convert** (WebP / JPG / PNG). Edits are re-encoded
+server-side so they stay optimised.
 
 > **Fallback:** when the flag is off, or `intervention/image` is not installed,
 > WireMedia silently behaves like the default mode — nothing breaks.

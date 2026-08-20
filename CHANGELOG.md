@@ -14,6 +14,11 @@
 - **Library-mode editor transforms**: when image-library mode is enabled, the image editor
   toolbar shows server-side Intervention transforms — grayscale, blur, sharpen, and one-click
   convert to WebP / JPG / PNG (`libraryTransformDataUrl` on `HandleImageLibrary`).
+- **Live filter preview sliders**: grayscale, blur, and sharpen now open a 0–100% range slider
+  with Apply / Cancel buttons. The canvas previews the effect live as the slider moves
+  (`ctx.filter` for grayscale/blur, a 3×3 convolution for sharpen); **Apply** bakes the result
+  into the edited image, **Cancel** reverts to the pre-preview state. Convert remains a
+  one-click server-side transform.
 
 ## [2.1.0] — 2026-08-13
 
