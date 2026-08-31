@@ -47,9 +47,11 @@ return [
     'crop_apply' => 'Apply crop',
     'editor_library' => 'Library',
     'editor_convert' => 'Convert',
+    'editor_compress' => 'Compress',
     'library_grayscale' => 'Grayscale',
     'library_blur' => 'Blur',
     'library_sharpen' => 'Sharpen',
+    'library_compress' => 'Compress',
     'library_apply' => 'Apply',
     'library_cancel' => 'Cancel',
     'library_convert_webp' => 'Convert to WebP',
@@ -62,6 +64,12 @@ return [
     'save_add' => 'Keep both',
     'save_download' => 'Download result',
     'save_server' => 'Save to server',
+    'editor_unsaved_badge' => 'Converted — Save to apply',
+    'editor_compressed_badge' => 'Compressed — Save to apply',
+    'editor_cropped_badge' => 'Cropped — Save to apply',
+    'editor_edited_badge' => 'Edited — Save to apply',
+    'editor_info_title' => 'Image Info',
+    'editor_converting' => 'Converting…',
 
     // Keyboard hints
     'hint_scroll_zoom' => 'to zoom',
@@ -73,6 +81,7 @@ return [
     'max_files' => 'You can only upload a maximum of :max files.',
     'invalid_extension' => 'File ":file" has an invalid extension ":extension". Allowed: :allowed.',
     'invalid_mime' => 'File ":file" has an invalid type ":mime". Allowed: :allowed.',
+    'preview_only_no_upload' => 'Upload is disabled in preview-only mode.',
 
     // Image editor
     'invalid_image_data' => 'Invalid image data.',

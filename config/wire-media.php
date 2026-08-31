@@ -54,6 +54,7 @@ return [
     'show_preview' => true,
     'show_list' => true,
     'dark_mode' => false,
+    'preview_only' => env('WIRE_MEDIA_PREVIEW_ONLY', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -66,6 +67,26 @@ return [
     | lewat prop `:use-image-library="true"` pada komponen.
     */
     'use_image_library' => env('WIRE_MEDIA_USE_IMAGE_LIBRARY', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Auto Compress (lossless)
+    |--------------------------------------------------------------------------
+    | Jika `true`, upload gambar otomatis di-compress (re-encode) tanpa
+    | mengurangi kualitas & tanpa resize. Tetap format asli, kualitas tinggi.
+    | Membutuhkan `intervention/image`. Library mode punya prioritas jika aktif.
+    */
+    'auto_compress' => env('WIRE_MEDIA_AUTO_COMPRESS', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | UI Auto Compress (editor slider)
+    |--------------------------------------------------------------------------
+    | Jika `true`, editor menampilkan tombol Compress dengan slider 0-100%
+    | (metode sama seperti library). Bisa dipakai tanpa library mode
+    | (fallback client-side via canvas quality).
+    */
+    'ui_auto_compress' => env('WIRE_MEDIA_UI_AUTO_COMPRESS', false),
 
     /*
     |--------------------------------------------------------------------------

@@ -497,9 +497,10 @@ class ImageProcessor {
      * (up to) natural resolution.
      * @param {number} [scale=1]  — additional output multiplier (>1 = bigger)
      * @param {string} [mime]     — output MIME (jpeg/webp/gif kept, else PNG)
+     * @param {number|null} [quality=null] — 0..1 for JPEG/WebP (ignored for PNG)
      * @returns {string|null}
      */
-    exportDataURL(scale = 1, mime) {
+    exportDataURL(scale = 1, mime, quality = null) {
         if (!this.img || !this.img.naturalWidth) return null;
 
         const exportMime =
@@ -548,6 +549,10 @@ class ImageProcessor {
 
         if (this.sharpen > 0) {
             this._applySharpen(out, this.sharpen / 100);
+        }
+
+        if (quality !== null && (exportMime === 'image/jpeg' || exportMime === 'image/webp')) {
+            return out.toDataURL(exportMime, Math.max(0, Math.min(1, quality)));
         }
 
         return out.toDataURL(exportMime);

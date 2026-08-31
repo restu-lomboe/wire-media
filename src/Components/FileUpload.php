@@ -61,6 +61,12 @@ class FileUpload extends Component
 
     public ?bool $useImageLibrary = false;
 
+    public ?bool $autoCompress = false;
+
+    public ?bool $uiAutoCompress = false;
+
+    public bool $previewOnly = false;
+
     // ─── UI state ────────────────────────────────────────────────────────────
     public array $errors = [];
 
@@ -91,6 +97,9 @@ class FileUpload extends Component
         ?string $modelAttribute = null,
         ?bool $darkMode = null,
         ?bool $useImageLibrary = null,
+        ?bool $autoCompress = null,
+        ?bool $uiAutoCompress = null,
+        bool $previewOnly = false,
     ): void {
         $this->multiple = $multiple;
         $this->acceptedMimeTypes = $acceptedMimeTypes ?: (array) config('wire-media.accepted_mime_types', []);
@@ -107,6 +116,9 @@ class FileUpload extends Component
         $this->acceptAttribute = $acceptAttribute ?: $this->buildAcceptAttribute();
         $this->darkMode = $darkMode ?? (bool) config('wire-media.dark_mode', false);
         $this->useImageLibrary = $useImageLibrary ?? (bool) config('wire-media.use_image_library', false);
+        $this->autoCompress = $autoCompress ?? (bool) config('wire-media.auto_compress', false);
+        $this->uiAutoCompress = $uiAutoCompress ?? (bool) config('wire-media.ui_auto_compress', false);
+        $this->previewOnly = $previewOnly || (bool) config('wire-media.preview_only', false);
 
         if ($existingFiles) {
             $this->loadExistingFiles($existingFiles, $modelAttribute);
@@ -117,6 +129,12 @@ class FileUpload extends Component
 
     public function updatedFiles(): void
     {
+        if ($this->previewOnly) {
+            $this->errors[] = trans('wire-media::messages.preview_only_no_upload');
+
+            return;
+        }
+
         $this->errors = [];
 
         $filesToProcess = $this->multiple
@@ -158,6 +176,10 @@ class FileUpload extends Component
 
     public function removeFile(int $index): void
     {
+        if ($this->previewOnly) {
+            return;
+        }
+
         if (! isset($this->uploadedFiles[$index])) {
             return;
         }
@@ -192,6 +214,10 @@ class FileUpload extends Component
 
     public function clearAll(): void
     {
+        if ($this->previewOnly) {
+            return;
+        }
+
         foreach ($this->uploadedFiles as $file) {
             // Pre-existing files are owned by the app — leave them on disk.
             if ($file['is_existing'] ?? false) {
@@ -227,6 +253,10 @@ class FileUpload extends Component
 
     public function openEditor(int $index): void
     {
+        if ($this->previewOnly) {
+            return;
+        }
+
         if (! isset($this->uploadedFiles[$index])) {
             return;
         }

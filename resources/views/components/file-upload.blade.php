@@ -9,13 +9,14 @@
     $dm = $darkMode ? 'da-dark' : '';
 @endphp
 
-<div class="da-wrap {{ $dm }}" x-data="daFileUpload(@js($uploadedFiles), @js($darkMode))" x-init="init()" wire:ignore.self>
+<div class="da-wrap {{ $dm }}" x-data="daFileUpload(@js($uploadedFiles), @js($darkMode), @js($previewOnly))" x-init="init()" wire:ignore.self>
 
     {{-- ══════════════════════════ DROPZONE ══════════════════════════════════ --}}
     @if ($label)
         <label class="da-label">{{ $label }}</label>
     @endif
 
+    @if (!$previewOnly)
     <div class="da-dropzone" :class="{ 'da-dropzone--over': isDragging }" @dragover.prevent="isDragging = true"
         @dragleave.prevent="isDragging = false" @drop.prevent="handleDrop($event)" @click="$refs.fileInput.click()">
         <div class="da-dropzone__icon">
@@ -40,6 +41,7 @@
             @if ($multiple) multiple @endif
             @if ($acceptAttribute) accept="{{ $acceptAttribute }}" @endif wire:model="files">
     </div>
+    @endif
 
     {{-- ── Progress ─────────────────────────────────────────────────────────── --}}
     <div wire:loading wire:target="files" class="da-progress-wrap">
@@ -74,14 +76,14 @@
                     $isEx = $file['is_existing'] ?? false;
                 @endphp
                 <div class="da-card {{ $previewIndex === $idx || $editorIndex === $idx ? 'da-card--active' : '' }}"
-                    wire:key="{{ 'wm-file-'.$file['path'].'-'.$idx }}">
+                    wire:key="{{ 'wm-file-' . $file['path'] . '-' . $idx }}">
 
                     {{-- Thumb --}}
                     <button type="button" class="da-card__thumb" @click="openLightbox({{ $idx }})"
                         title="{{ trans('wire-media::messages.preview_info') }}">
                         @if ($showPreview && $isImg)
-                            <img src="{{ $file['thumbnail_url'] ?? $file['url'] }}" alt="{{ $file['original_name'] }}" class="da-card__img"
-                                loading="lazy">
+                            <img src="{{ $file['thumbnail_url'] ?? $file['url'] }}" alt="{{ $file['original_name'] }}"
+                                class="da-card__img" loading="lazy">
                             {{-- Hover overlay --}}
                             <span class="da-card__hover-icons">
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
@@ -100,8 +102,9 @@
                         <span class="da-badge {{ $isEx ? 'da-badge--ex' : 'da-badge--new' }}">
                             {{ $isEx ? trans('wire-media::messages.badge_existing') : trans('wire-media::messages.badge_new') }}
                         </span>
-                        @if (! empty($file['thumbnail']))
-                            <span class="da-badge da-badge--opt">{{ trans('wire-media::messages.badge_optimized') }}</span>
+                        @if (!empty($file['thumbnail']))
+                            <span
+                                class="da-badge da-badge--opt">{{ trans('wire-media::messages.badge_optimized') }}</span>
                         @endif
                     </button>
 
@@ -115,7 +118,7 @@
 
                     {{-- Actions --}}
                     <div class="da-card__actions">
-                        @if ($isImg)
+                        @if (!$previewOnly && $isImg)
                             <button type="button" class="da-card__btn da-card__btn--edit"
                                 wire:click="openEditor({{ $idx }})"
                                 title="{{ trans('wire-media::messages.edit_image') }}">
@@ -152,6 +155,7 @@
                                 <line x1="12" y1="15" x2="12" y2="3" />
                             </svg>
                         </a>
+                        @if (!$previewOnly)
                         <button type="button" class="da-card__btn da-card__btn--rm"
                             wire:click="removeFile({{ $idx }})"
                             title="{{ trans('wire-media::messages.remove') }}">
@@ -165,12 +169,13 @@
                                 <path d="M9 6V4h6v2" />
                             </svg>
                         </button>
+                        @endif
                     </div>
                 </div>
             @endforeach
         </div>
 
-        @if (count($uploadedFiles) > 1)
+        @if (!$previewOnly && count($uploadedFiles) > 1)
             <button type="button" class="da-clear-all"
                 wire:click="clearAll">{{ trans('wire-media::messages.clear_all') }}</button>
         @endif
@@ -182,7 +187,7 @@
             <div class="da-panel__header">
                 <span class="da-panel__title">{{ trans('wire-media::messages.file_info') }}</span>
                 <div class="da-panel__header-actions">
-                    @if ($previewFile['is_image'] ?? false)
+                    @if (!$previewOnly && ($previewFile['is_image'] ?? false))
                         <button type="button" class="da-panel__hbtn" wire:click="openEditor({{ $previewIndex }})"
                             title="{{ trans('wire-media::messages.edit_image') }}">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
@@ -278,15 +283,13 @@
     @endif
 
     {{-- ══════════════════════ IMAGE EDITOR ════════════════════════════════════ --}}
-    @if ($editorFile)
-        <div class="da-editor"
-            x-data="daImageEditor(@js($editorFile['url']), {{ $editorIndex }}, @js($editorFile['mime'] ?? 'image/png'), @js($editorFile['original_name'] ?? 'edited-image'), @json($useImageLibrary))"
-            x-init="initEditor()" wire:ignore>
+    @if ($editorFile && !$previewOnly)
+        <div class="da-editor" x-data="daImageEditor(@js($editorFile['url']), {{ $editorIndex }}, @js($editorFile['mime'] ?? 'image/png'), @js($editorFile['original_name'] ?? 'edited-image'), @json($useImageLibrary), @json($uiAutoCompress), @js($editorFile), @json($previewOnly))" x-init="initEditor()" wire:ignore>
             {{-- Toolbar --}}
             <div class="da-editor__toolbar">
                 <div class="da-editor__toolbar-group">
                     <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_transform') }}</span>
-                    <button type="button" class="da-tool-btn" @click="proc.zoomOut()"
+                    <button type="button" class="da-tool-btn" @click="proc.zoomOut(); lastAction='edited'"
                         title="{{ trans('wire-media::messages.zoom_out') }} (-)">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -296,7 +299,7 @@
                         </svg>
                     </button>
                     <span class="da-tool-btn__label" x-text="zoomLabel">100%</span>
-                    <button type="button" class="da-tool-btn" @click="proc.zoomIn()"
+                    <button type="button" class="da-tool-btn" @click="proc.zoomIn(); lastAction='edited'"
                         title="{{ trans('wire-media::messages.zoom_in') }} (+)">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -306,7 +309,7 @@
                             <line x1="8" y1="11" x2="14" y2="11" />
                         </svg>
                     </button>
-                    <button type="button" class="da-tool-btn" @click="proc.zoomReset()"
+                    <button type="button" class="da-tool-btn" @click="proc.zoomReset(); lastAction='edited'"
                         title="{{ trans('wire-media::messages.zoom_reset') }}">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -318,14 +321,14 @@
 
                 <div class="da-editor__toolbar-group">
                     <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_rotate') }}</span>
-                    <button type="button" class="da-tool-btn" @click="proc.rotate(-90)"
+                    <button type="button" class="da-tool-btn" @click="proc.rotate(-90); lastAction='edited'"
                         title="{{ trans('wire-media::messages.rotate_ccw') }}">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38" />
                         </svg>
                     </button>
-                    <button type="button" class="da-tool-btn" @click="proc.rotate(90)"
+                    <button type="button" class="da-tool-btn" @click="proc.rotate(90); lastAction='edited'"
                         title="{{ trans('wire-media::messages.rotate_cw') }}">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -336,7 +339,7 @@
 
                 <div class="da-editor__toolbar-group">
                     <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_flip') }}</span>
-                    <button type="button" class="da-tool-btn" @click="proc.flipHorizontal()"
+                    <button type="button" class="da-tool-btn" @click="proc.flipHorizontal(); lastAction='edited'"
                         title="{{ trans('wire-media::messages.flip_h') }}">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -345,7 +348,7 @@
                             <line x1="12" y1="20" x2="12" y2="4" />
                         </svg>
                     </button>
-                    <button type="button" class="da-tool-btn" @click="proc.flipVertical()"
+                    <button type="button" class="da-tool-btn" @click="proc.flipVertical(); lastAction='edited'"
                         title="{{ trans('wire-media::messages.flip_v') }}">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -375,39 +378,66 @@
                     </button>
                 </div>
 
+                @if ($uiAutoCompress)
+                    <div class="da-editor__toolbar-group">
+                        <span
+                            class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_compress') }}</span>
+                        <button type="button" class="da-tool-btn"
+                            :class="{ 'da-tool-btn--active': libTransform === 'compress' }"
+                            @click="openLibTransform('compress')"
+                            title="{{ trans('wire-media::messages.library_compress') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                viewBox="0 0 24 24">
+                                <path d="M0 0h24v24H0z" fill="none" />
+                                <path fill="currentColor"
+                                    d="M10.38 13.08A1 1 0 0 0 10 13H6a1 1 0 0 0 0 2h1.59l-5.3 5.29a1 1 0 0 0 0 1.42a1 1 0 0 0 1.42 0L9 16.41V18a1 1 0 0 0 2 0v-4a1 1 0 0 0-.08-.38a1 1 0 0 0-.54-.54M10 5a1 1 0 0 0-1 1v1.59l-5.29-5.3a1 1 0 0 0-1.42 1.42L7.59 9H6a1 1 0 0 0 0 2h4a1 1 0 0 0 .38-.08a1 1 0 0 0 .54-.54A1 1 0 0 0 11 10V6a1 1 0 0 0-1-1m3.62 5.92A1 1 0 0 0 14 11h4a1 1 0 0 0 0-2h-1.59l5.3-5.29a1 1 0 1 0-1.42-1.42L15 7.59V6a1 1 0 0 0-2 0v4a1 1 0 0 0 .08.38a1 1 0 0 0 .54.54M16.41 15H18a1 1 0 0 0 0-2h-4a1 1 0 0 0-.38.08a1 1 0 0 0-.54.54A1 1 0 0 0 13 14v4a1 1 0 0 0 2 0v-1.59l5.29 5.3a1 1 0 0 0 1.42 0a1 1 0 0 0 0-1.42Z" />
+                            </svg>
+
+                        </button>
+                    </div>
+                @endif
+
                 @if ($useImageLibrary)
                     <div class="da-editor__toolbar-group">
-                        <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_library') }}</span>
-                        <button type="button" class="da-tool-btn" :class="{ 'da-tool-btn--active': libTransform === 'grayscale' }"
+                        <span
+                            class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_library') }}</span>
+                        <button type="button" class="da-tool-btn"
+                            :class="{ 'da-tool-btn--active': libTransform === 'grayscale' }"
                             @click="openLibTransform('grayscale')"
                             title="{{ trans('wire-media::messages.library_grayscale') }}">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <rect x="3" y="3" width="18" height="18" rx="2" />
                                 <line x1="3" y1="12" x2="21" y2="12" />
                             </svg>
                         </button>
-                        <button type="button" class="da-tool-btn" :class="{ 'da-tool-btn--active': libTransform === 'blur' }"
+                        <button type="button" class="da-tool-btn"
+                            :class="{ 'da-tool-btn--active': libTransform === 'blur' }"
                             @click="openLibTransform('blur')"
                             title="{{ trans('wire-media::messages.library_blur') }}">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="9" />
                                 <circle cx="12" cy="12" r="4" fill="currentColor" />
                             </svg>
                         </button>
-                        <button type="button" class="da-tool-btn" :class="{ 'da-tool-btn--active': libTransform === 'sharpen' }"
+                        <button type="button" class="da-tool-btn"
+                            :class="{ 'da-tool-btn--active': libTransform === 'sharpen' }"
                             @click="openLibTransform('sharpen')"
                             title="{{ trans('wire-media::messages.library_sharpen') }}">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
                                 <path d="M12 2l2.4 4.8L19 9l-4.6 2.2L12 16l-2.4-4.8L5 9l4.6-2.2z" />
                             </svg>
                         </button>
                     </div>
 
                     <div class="da-editor__toolbar-group">
-                        <span class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_convert') }}</span>
+                        <span
+                            class="da-editor__toolbar-label">{{ trans('wire-media::messages.editor_convert') }}</span>
                         <button type="button" class="da-tool-btn" :disabled="libraryBusy"
                             @click="libraryTransform('convert', { format: 'webp', quality: 85 })"
                             title="{{ trans('wire-media::messages.library_convert_webp') }}">
@@ -453,41 +483,93 @@
                 </div>
             </div>
 
-            {{-- Canvas --}}
-            <div class="da-editor__canvas-wrap" id="da-editor-wrap-{{ $editorIndex }}">
-                <canvas id="da-editor-canvas-{{ $editorIndex }}" class="da-editor__canvas"></canvas>
-                <div class="da-editor__canvas-hint" x-show="!canvasReady">
-                    <div class="da-spin-ring"></div>
+            <div class="da-editor__stage">
+                <div class="da-editor__canvas-wrap" id="da-editor-wrap-{{ $editorIndex }}">
+                    <canvas id="da-editor-canvas-{{ $editorIndex }}" class="da-editor__canvas"></canvas>
+                    <div class="da-editor__canvas-hint" x-show="!canvasReady">
+                        <div class="da-spin-ring"></div>
+                    </div>
+
+                    @if ($useImageLibrary || $uiAutoCompress)
+                        <div class="da-editor__libcard" x-show="libTransform" x-cloak>
+                            <div class="da-editor__libcard-head">
+                                <span class="da-editor__libcard-title" x-text="libTransformLabel"></span>
+                                <span class="da-editor__libcard-val" x-text="libValue + '%'"></span>
+                            </div>
+                            <input type="range" min="0" max="100" step="1" x-model="libValue"
+                                @input="_previewLib()" class="da-editor__range" :title="libTransformLabel"
+                                :disabled="libraryBusy">
+                            <div class="da-editor__libcard-actions">
+                                <button type="button" class="da-editor__libcard-btn da-editor__libcard-btn--cancel"
+                                    @click="cancelLibTransform()" :disabled="libraryBusy">
+                                    {{ trans('wire-media::messages.library_cancel') }}
+                                </button>
+                                <button type="button" class="da-editor__libcard-btn da-editor__libcard-btn--apply"
+                                    @click="applyLibTransform()" :disabled="libraryBusy">
+                                    <span x-show="!libraryBusy">{{ trans('wire-media::messages.library_apply') }}</span>
+                                    <span x-show="libraryBusy" class="da-spin-sm"
+                                        style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle"></span>
+                                </button>
+                            </div>
+                        </div>
+                    @endif
+                    <div class="da-editor__canvas-loading" x-show="libraryBusy" x-transition.opacity>
+                        <div class="da-spin-ring"></div>
+                        <span style="margin-top:8px;font-size:12px;color:#fff;letter-spacing:.02em">{{ trans('wire-media::messages.editor_converting') }}</span>
+                    </div>
+
+                    {{-- Keyboard hint — inside canvas-wrap, bottom overlay --}}
+                    <p class="da-editor__hint">
+                        <kbd>Scroll</kbd> {{ trans('wire-media::messages.hint_scroll_zoom') }} &nbsp;
+                        <kbd>Drag</kbd> {{ trans('wire-media::messages.hint_drag_pan') }} &nbsp;
+                        <kbd>Crop mode</kbd>: {{ trans('wire-media::messages.hint_crop_drag') }}
+                    </p>
                 </div>
 
-                @if ($useImageLibrary)
-                    <div class="da-editor__libcard" x-show="libTransform" x-cloak>
-                        <div class="da-editor__libcard-head">
-                            <span class="da-editor__libcard-title" x-text="libTransformLabel"></span>
-                            <span class="da-editor__libcard-val" x-text="libValue + '%'"></span>
-                        </div>
-                        <input type="range" min="0" max="100" step="1" x-model="libValue" @input="_previewLib()"
-                            class="da-editor__range" :title="libTransformLabel">
-                        <div class="da-editor__libcard-actions">
-                            <button type="button" class="da-editor__libcard-btn da-editor__libcard-btn--cancel"
-                                @click="cancelLibTransform()">
-                                {{ trans('wire-media::messages.library_cancel') }}
-                            </button>
-                            <button type="button" class="da-editor__libcard-btn da-editor__libcard-btn--apply"
-                                @click="applyLibTransform()">
-                                {{ trans('wire-media::messages.library_apply') }}
-                            </button>
-                        </div>
+                {{-- Image Info (edit mode) — right side, updates live on convert/compress --}}
+                <div class="da-editor__info" x-show="canvasReady || hasChanges" x-transition>
+                    <div class="da-editor__info-head">
+                        <span
+                            class="da-editor__info-title">{{ trans('wire-media::messages.editor_info_title') }}</span>
+                        <span class="da-badge da-badge--new" x-show="hasChanges" x-transition
+                            style="margin-left:8px" x-text="unsavedBadgeText"></span>
+                        <span class="da-badge da-badge--converting" x-show="libraryBusy"
+                            style="margin-left:6px;background:#f59e0b;color:#fff;border-color:#f59e0b">{{ trans('wire-media::messages.editor_converting') }}</span>
                     </div>
-                @endif
+                    <dl class="da-editor__info-list">
+                        <div class="da-editor__info-item">
+                            <dt>{{ trans('wire-media::messages.info_name') }}</dt>
+                            <dd x-text="originalName"></dd>
+                        </div>
+                        <div class="da-editor__info-item">
+                            <dt>{{ trans('wire-media::messages.info_type') }}</dt>
+                            <dd x-text="mime + ' (' + currentExt.toUpperCase() + ')'"></dd>
+                        </div>
+                        <div class="da-editor__info-item">
+                            <dt>{{ trans('wire-media::messages.info_size') }}</dt>
+                            <dd>
+                                <span x-text="currentSizeHuman"></span>
+                                <span class="da-text-muted"
+                                    x-text="' (' + currentSize.toLocaleString() + ' bytes)'"></span>
+                                <template x-if="fileInfo.size && currentSize !== fileInfo.size">
+                                    <span class="da-badge da-badge--inline"
+                                        :class="currentSize < fileInfo.size ? 'da-badge--new' : 'da-badge--ex'"
+                                        style="margin-left:6px;font-size:10px"
+                                        x-text="currentSize < fileInfo.size ? '↓ ' + formatBytes(fileInfo.size - currentSize) + ' smaller' : '↑ ' + formatBytes(currentSize - fileInfo.size) + ' larger'"></span>
+                                </template>
+                            </dd>
+                        </div>
+                        <div class="da-editor__info-item" x-show="fileInfo.disk">
+                            <dt>{{ trans('wire-media::messages.info_disk') }}</dt>
+                            <dd x-text="fileInfo.disk || ''"></dd>
+                        </div>
+                        <div class="da-editor__info-item" x-show="fileInfo.path">
+                            <dt>{{ trans('wire-media::messages.info_path') }}</dt>
+                            <dd class="da-mono" x-text="fileInfo.path || ''" style="word-break:break-all"></dd>
+                        </div>
+                    </dl>
+                </div>
             </div>
-
-            {{-- Keyboard hint --}}
-            <p class="da-editor__hint">
-                <kbd>Scroll</kbd> {{ trans('wire-media::messages.hint_scroll_zoom') }} &nbsp;
-                <kbd>Drag</kbd> {{ trans('wire-media::messages.hint_drag_pan') }} &nbsp;
-                <kbd>Crop mode</kbd>: {{ trans('wire-media::messages.hint_crop_drag') }}
-            </p>
 
             {{-- Editor error --}}
             <p class="da-editor__error" x-show="errorMessage" x-text="errorMessage" x-cloak></p>
@@ -506,6 +588,9 @@
                 </div>
 
                 <div class="da-editor__save-actions">
+                    <span class="da-badge da-badge--new da-save-badge" x-show="hasChanges && !saving && !libraryBusy"
+                        x-transition
+                        style="align-self:center;animation:da-pulse 1.8s infinite" x-text="unsavedBadgeText"></span>
                     <button type="button" class="da-editor__btn da-editor__btn--secondary"
                         @click="downloadCurrent()">
                         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
@@ -517,7 +602,7 @@
                         {{ trans('wire-media::messages.save_download') }}
                     </button>
                     <button type="button" class="da-editor__btn da-editor__btn--primary" @click="saveToServer()"
-                        :disabled="saving">
+                        :disabled="saving" :class="{ 'da-btn-pulse': hasChanges && !saving }">
                         <span x-show="!saving" class="da-saving">
                             <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
                                 stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -550,8 +635,8 @@
 @assets
     <script>
         /* ════════════════════════════════════════════════════════════════════════════
-                       ImageProcessor — canvas engine
-                       ════════════════════════════════════════════════════════════════════════════ */
+                                       ImageProcessor — canvas engine
+                                       ════════════════════════════════════════════════════════════════════════════ */
         @if (file_exists($wireMediaJsPath . '/image-processor.js'))
             {!! file_get_contents($wireMediaJsPath . '/image-processor.js') !!}
         @endif
@@ -568,7 +653,8 @@
            ════════════════════════════════════════════════════════════════════════════ */
         document.addEventListener('alpine:init', () => {
 
-            Alpine.data('daFileUpload', (files, darkMode) => ({
+            Alpine.data('daFileUpload', (files, darkMode, previewOnly = false) => ({
+                previewOnly: previewOnly,
                 isDragging: false,
                 files: files,
 
@@ -593,8 +679,7 @@
                     new LightboxManager(
                         this.files,
                         originalIndex,
-                        (idx) => this.$wire.openEditor(idx),
-                        {
+                        this.previewOnly ? null : (idx) => this.$wire.openEditor(idx), {
                             fileDetails: '{{ trans('wire-media::messages.file_info') }}',
                             name: '{{ trans('wire-media::messages.info_name') }}',
                             type: '{{ trans('wire-media::messages.info_type') }}',
@@ -612,16 +697,22 @@
             }));
 
             /* ── Alpine component: daImageEditor ─────────────────────────────────── */
-            Alpine.data('daImageEditor', (src, index, mime, originalName, libraryMode) => ({
+            Alpine.data('daImageEditor', (src, index, mime, originalName, libraryMode, uiCompressMode = false,
+                fileInfo = null, previewOnly = false) => ({
                 src: src,
                 originalSrc: src,
                 index: index,
                 mime: mime,
                 originalName: originalName,
                 libraryMode: libraryMode,
+                uiCompressMode: uiCompressMode,
+                fileInfo: fileInfo || {},
+                previewOnly: previewOnly,
                 libraryBusy: false,
                 libTransform: null,
                 libValue: 0,
+                lastCompressQuality: null,
+                lastAction: null,
                 proc: null,
                 cropMode: false,
                 hasCrop: false,
@@ -636,8 +727,51 @@
                         grayscale: '{{ trans('wire-media::messages.library_grayscale') }}',
                         blur: '{{ trans('wire-media::messages.library_blur') }}',
                         sharpen: '{{ trans('wire-media::messages.library_sharpen') }}',
+                        compress: '{{ trans('wire-media::messages.library_compress') }}',
                     };
                     return labels[this.libTransform] || '';
+                },
+
+                get currentExt() {
+                    if (this.mime === 'image/jpeg') return 'jpg';
+                    if (this.mime === 'image/webp') return 'webp';
+                    if (this.mime === 'image/gif') return 'gif';
+                    if (this.mime === 'image/png') return 'png';
+                    return (this.mime.split('/')[1] || 'img');
+                },
+                get currentSize() {
+                    if (this.src && this.src.startsWith('data:')) {
+                        try {
+                            const b64 = this.src.split(',')[1] || '';
+                            return Math.round(b64.length * 0.75);
+                        } catch (e) {
+                            return 0;
+                        }
+                    }
+                    return this.fileInfo.size || 0;
+                },
+                get currentSizeHuman() {
+                    return this.formatBytes(this.currentSize);
+                },
+                get hasChanges() {
+                    return this.src !== this.originalSrc || this.mime !== (this.fileInfo.mime || this.mime) || this.hasPendingCanvasTransforms();
+                },
+                get unsavedBadgeText() {
+                    if (this.lastAction === 'crop') return '{{ trans('wire-media::messages.editor_cropped_badge') }}';
+                    if (this.lastAction === 'compress' || this.lastCompressQuality !== null) return '{{ trans('wire-media::messages.editor_compressed_badge') }}';
+                    if (this.lastAction === 'convert') return '{{ trans('wire-media::messages.editor_unsaved_badge') }}';
+                    if (this.lastAction === 'edited') return '{{ trans('wire-media::messages.editor_edited_badge') }}';
+                    // fallback: detect by mime change vs compress
+                    if (this.lastCompressQuality !== null) return '{{ trans('wire-media::messages.editor_compressed_badge') }}';
+                    if (this.mime !== (this.fileInfo.mime || this.mime)) return '{{ trans('wire-media::messages.editor_unsaved_badge') }}';
+                    return '{{ trans('wire-media::messages.editor_edited_badge') }}';
+                },
+                formatBytes(bytes) {
+                    if (bytes <= 0) return '0 B';
+                    const units = ['B', 'KB', 'MB', 'GB'];
+                    const pow = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length -
+                        1);
+                    return (bytes / Math.pow(1024, pow)).toFixed(pow === 0 ? 0 : 1) + ' ' + units[pow];
                 },
 
                 initEditor() {
@@ -655,7 +789,8 @@
 
                         canvas.addEventListener('ip:error', () => {
                             this.canvasReady = false;
-                            this.errorMessage = '{{ trans('wire-media::messages.editor_load_failed') }}';
+                            this.errorMessage =
+                                '{{ trans('wire-media::messages.editor_load_failed') }}';
                         });
 
                         canvas.addEventListener('ip:zoom', (e) => {
@@ -680,13 +815,15 @@
                         if (!dataUrl) return;
                         // Reload editor with cropped result
                         this.src = dataUrl;
+                        this.lastAction = 'crop';
                         this.cropMode = false;
                         this.hasCrop = false;
                         this.canvasReady = false;
                         this.proc.destroy();
                         this.$nextTick(() => this.initEditor());
                     } catch (e) {
-                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
+                        this.errorMessage =
+                            '{{ trans('wire-media::messages.editor_export_failed') }}';
                     }
                 },
 
@@ -695,13 +832,17 @@
                     this.proc.setFilter(null);
                     this.proc.setSharpen(0);
                     this.libTransform = null;
-                    // Restore the true original image (undoes crops too)
+                    this.lastCompressQuality = null;
+                    this.lastAction = null;
+                    // Restore the true original image (undoes crops/convert/compress too)
                     this.proc.destroy();
                     this.cropMode = false;
                     this.hasCrop = false;
                     this.zoomLabel = '100%';
                     this.canvasReady = false;
                     this.src = this.originalSrc;
+                    this.mime = this.fileInfo.mime || this.mime;
+                    this.errorMessage = '';
                     this.$nextTick(() => this.initEditor());
                 },
 
@@ -711,13 +852,16 @@
                     this.errorMessage = '';
                     try {
                         const dataUrl = this.proc.exportDataURL(1, this.mime);
-                        const result = await this.$wire.libraryTransformDataUrl(dataUrl, transform, params);
+                        const result = await this.$wire.libraryTransformDataUrl(dataUrl, transform,
+                            params);
                         if (!result) {
-                            this.errorMessage = '{{ trans('wire-media::messages.editor_transform_failed') }}';
+                            this.errorMessage =
+                                '{{ trans('wire-media::messages.editor_transform_failed') }}';
                             return;
                         }
                         const m = result.match(/^data:(image\/[a-z]+);base64,/);
                         if (m) this.mime = m[1];
+                        this.lastAction = transform === 'convert' ? 'convert' : 'edited';
                         // Reload editor with the transformed result
                         this.proc.destroy();
                         this.cropMode = false;
@@ -726,17 +870,23 @@
                         this.src = result;
                         this.$nextTick(() => this.initEditor());
                     } catch (e) {
-                        this.errorMessage = '{{ trans('wire-media::messages.editor_transform_failed') }}';
+                        this.errorMessage =
+                            '{{ trans('wire-media::messages.editor_transform_failed') }}';
                     } finally {
                         this.libraryBusy = false;
                     }
                 },
 
                 openLibTransform(transform) {
-                    if (!this.libraryMode || !this.proc) return;
+                    const isCompress = transform === 'compress';
+                    if (isCompress) {
+                        if (!this.uiCompressMode || !this.proc) return;
+                    } else {
+                        if (!this.libraryMode || !this.proc) return;
+                    }
                     this.cancelLibTransform();
                     this.libTransform = transform;
-                    this.libValue = 0;
+                    this.libValue = isCompress ? 85 : 0;
                     this._previewLib();
                 },
 
@@ -751,11 +901,93 @@
                         this.proc.setFilter(`blur(${px}px)`);
                     } else if (this.libTransform === 'sharpen') {
                         this.proc.setSharpen(v);
+                    } else if (this.libTransform === 'compress') {
+                        // No visual preview for compress — quality only affects export
+                        return;
                     }
                 },
 
-                applyLibTransform() {
+                async applyLibTransform() {
                     if (!this.proc || !this.libTransform) return;
+                    if (this.libTransform === 'compress') {
+                        const quality = Math.max(1, Math.min(100, parseInt(this.libValue) || 85));
+                        this.libraryBusy = true;
+                        this.errorMessage = '';
+                        // Show canvas loading hint
+                        this.canvasReady = false;
+                        try {
+                            // Use client-side compress directly to avoid Livewire payload too large (3738KB > 1024KB).
+                            // Server-side Intervention compress would require sending the full dataUrl which often exceeds Livewire max_size.
+                            // Only attempt server if payload is small enough (<900KB base64).
+                            const previewUrl = this.proc.exportDataURL(1, this.mime);
+                            const isSmallPayload = previewUrl.length < 900 * 1024;
+                            if (this.uiCompressMode && isSmallPayload) {
+                                try {
+                                    const result = await this.$wire.libraryTransformDataUrl(
+                                        previewUrl,
+                                        'compress', {
+                                            quality: quality
+                                        });
+                                    if (result) {
+                                        const m = result.match(/^data:(image\/[a-z]+);base64,/);
+                                        if (m) this.mime = m[1];
+                                        this.lastCompressQuality = quality;
+                                        this.lastAction = 'compress';
+                                        this.proc.destroy();
+                                        this.proc.setFilter(null);
+                                        this.proc.setSharpen(0);
+                                        this.libTransform = null;
+                                        this.cropMode = false;
+                                        this.hasCrop = false;
+                                        this.src = result;
+                                        this.$nextTick(() => this.initEditor());
+                                        return;
+                                    }
+                                } catch (e) {
+                                    // Payload too large or server error — fallback to client compress
+                                    const msg = (e?.message || e?.toString() || '');
+                                    if (!msg.includes('payload') && !msg.includes('too large')) {
+                                        // non-payload error, still fallback
+                                    }
+                                }
+                            }
+                            // Client fallback: canvas toDataURL with quality (no server roundtrip, instant)
+                            // Small delay to let spinner show
+                            await new Promise(r => setTimeout(r, 80));
+                            const q = quality / 100;
+                            let exportMime = this.mime;
+                            // PNG ignores quality param — convert to JPEG for actual size reduction when compressing
+                            if (exportMime === 'image/png' && quality < 100) {
+                                exportMime = 'image/jpeg';
+                            }
+                            const dataUrl = this.proc.exportDataURL(1, exportMime, q);
+                            this.mime = exportMime;
+                            this.lastCompressQuality = quality;
+                            this.lastAction = 'compress';
+                            this.proc.destroy();
+                            this.proc.setFilter(null);
+                            this.proc.setSharpen(0);
+                            this.libTransform = null;
+                            this.cropMode = false;
+                            this.hasCrop = false;
+                            this.src = dataUrl;
+                            this.$nextTick(() => this.initEditor());
+                            return;
+                        } catch (e) {
+                            this.errorMessage =
+                                '{{ trans('wire-media::messages.editor_export_failed') }}';
+                            this.canvasReady = true;
+                            return;
+                        } finally {
+                            this.libraryBusy = false;
+                            // canvasReady will be set to true by ip:ready after re-init; if not re-init, restore
+                            if (!this.libTransform) {
+                                // keep false until new image loads
+                            } else {
+                                this.canvasReady = true;
+                            }
+                        }
+                    }
                     try {
                         const dataUrl = this.proc.exportDataURL(1, this.mime);
                         this.proc.setFilter(null);
@@ -766,10 +998,18 @@
                         this.canvasReady = false;
                         this.proc.destroy();
                         this.src = dataUrl;
+                        this.lastAction = 'edited';
                         this.$nextTick(() => this.initEditor());
                     } catch (e) {
-                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
+                        this.errorMessage =
+                            '{{ trans('wire-media::messages.editor_export_failed') }}';
                     }
+                },
+
+                hasPendingCanvasTransforms() {
+                    if (!this.proc) return false;
+                    return this.proc.zoom !== 1 || this.proc.rotation !== 0 || this.proc.flipH || this
+                        .proc.flipV || this.proc.cropMode || this.proc.filter || this.proc.sharpen;
                 },
 
                 cancelLibTransform() {
@@ -795,13 +1035,33 @@
                 downloadCurrent() {
                     if (!this.proc) return;
                     try {
-                        const dataUrl = this.proc.exportDataURL(1, this.mime);
+                        // If src is already a baked dataUrl from server (compress/convert) and no pending canvas transforms, download it directly to preserve exact quality/size
+                        if (this.src && this.src.startsWith('data:') && !this
+                            .hasPendingCanvasTransforms() && this.libTransform !== 'compress') {
+                            const a = document.createElement('a');
+                            a.href = this.src;
+                            a.download = this._baseName() + '-edited.' + this._extForMime();
+                            a.click();
+                            return;
+                        }
+                        let exportMime = this.mime;
+                        let quality = null;
+                        // If compress slider is still open (not yet applied), respect its current value for download
+                        if (this.libTransform === 'compress') {
+                            const qVal = Math.max(1, Math.min(100, parseInt(this.libValue) || 85));
+                            quality = qVal / 100;
+                            if (exportMime === 'image/png' && qVal < 100) exportMime = 'image/jpeg';
+                        }
+                        const dataUrl = quality !== null ? this.proc.exportDataURL(1, exportMime,
+                            quality) : this.proc.exportDataURL(1, exportMime);
+                        if (exportMime !== this.mime) this.mime = exportMime;
                         const a = document.createElement('a');
                         a.href = dataUrl;
                         a.download = this._baseName() + '-edited.' + this._extForMime();
                         a.click();
                     } catch (e) {
-                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
+                        this.errorMessage =
+                            '{{ trans('wire-media::messages.editor_export_failed') }}';
                     }
                 },
 
@@ -809,10 +1069,27 @@
                     if (!this.proc) return;
                     this.saving = true;
                     try {
-                        const dataUrl = this.proc.exportDataURL(1, this.mime);
+                        // If src is baked from server (compress/convert/crop) and no pending canvas transforms, save it directly to preserve exact size/format
+                        if (this.src && this.src.startsWith('data:') && !this
+                            .hasPendingCanvasTransforms() && this.libTransform !== 'compress') {
+                            await this.$wire.saveProcessedImage(this.index, this.src, this
+                                .saveMode);
+                            return;
+                        }
+                        let exportMime = this.mime;
+                        let quality = null;
+                        if (this.libTransform === 'compress') {
+                            const qVal = Math.max(1, Math.min(100, parseInt(this.libValue) || 85));
+                            quality = qVal / 100;
+                            if (exportMime === 'image/png' && qVal < 100) exportMime = 'image/jpeg';
+                        }
+                        const dataUrl = quality !== null ? this.proc.exportDataURL(1, exportMime,
+                            quality) : this.proc.exportDataURL(1, exportMime);
+                        if (exportMime !== this.mime) this.mime = exportMime;
                         await this.$wire.saveProcessedImage(this.index, dataUrl, this.saveMode);
                     } catch (e) {
-                        this.errorMessage = '{{ trans('wire-media::messages.editor_export_failed') }}';
+                        this.errorMessage =
+                            '{{ trans('wire-media::messages.editor_export_failed') }}';
                     } finally {
                         this.saving = false;
                     }
@@ -1393,7 +1670,7 @@
         .da-editor__toolbar {
             display: flex;
             flex-wrap: wrap;
-            gap: .5rem 1rem;
+            gap: .5rem .5rem;
             padding: .7rem 1rem;
             background: var(--da-bg2);
             border-bottom: 1px solid var(--da-border);
@@ -1572,13 +1849,15 @@
 
         .da-editor__canvas-wrap {
             position: relative;
-            flex: 1;
+            flex: 1 1 0;
+            min-width: 0;
+            min-height: 0;
             background: #0f172a;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 0;
             overflow: hidden;
+            padding: 1rem 1rem 2.8rem 1rem; /* bottom reserve for hint overlay */
         }
 
         .da-editor__canvas {
@@ -1602,6 +1881,141 @@
             background: rgba(15, 23, 42, .7);
         }
 
+        .da-editor__stage {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .da-editor__canvas-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, .78);
+            backdrop-filter: blur(2px);
+            z-index: 5;
+        }
+
+        .da-editor__info {
+            width: 320px;
+            flex-shrink: 0;
+            background: var(--da-bg2);
+            border-left: 1px solid var(--da-border);
+            padding: .85rem 1rem;
+            overflow-y: auto;
+        }
+
+        .da-editor__info-head {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .4rem;
+            margin-bottom: .6rem;
+            position: sticky;
+            top: 0;
+            background: var(--da-bg2);
+            padding-bottom: .4rem;
+            z-index: 1;
+        }
+
+        .da-editor__info-title {
+            font-weight: 600;
+            font-size: .85rem;
+            color: var(--da-text);
+        }
+
+        .da-editor__info-list {
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+            margin: 0;
+        }
+
+        .da-editor__info-item {
+            display: flex;
+            flex-direction: column;
+            gap: .2rem;
+            padding-bottom: .5rem;
+            border-bottom: 1px solid var(--da-border);
+        }
+
+        .da-editor__info-item:last-child {
+            border-bottom: none;
+        }
+
+        .da-editor__info-item dt {
+            font-size: .68rem;
+            font-weight: 600;
+            color: var(--da-text3);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .da-editor__info-item dd {
+            font-size: .82rem;
+            color: var(--da-text2);
+            margin: 0;
+            word-break: break-word;
+        }
+
+        .da-text-muted {
+            color: var(--da-text3);
+            font-size: .76rem;
+        }
+
+        .da-mono {
+            font-family: ui-monospace, monospace;
+            font-size: .78rem;
+        }
+
+        .da-save-badge {
+            font-size: .72rem;
+            padding: .28rem .55rem;
+            border-radius: 9999px;
+            animation: da-pulse 1.8s infinite;
+        }
+
+        .da-btn-pulse {
+            animation: da-pulse 1.8s infinite;
+            box-shadow: 0 0 0 0 rgba(99, 102, 241, .45);
+        }
+
+        @keyframes da-pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(99, 102, 241, .45);
+            }
+
+            70% {
+                box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .da-editor__stage {
+                flex-direction: column;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
+
+            .da-editor__info {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid var(--da-border);
+            }
+
+            .da-editor__canvas-wrap {
+                min-height: 42vh;
+            }
+        }
+
         .da-editor__hint {
             font-size: .72rem;
             color: var(--da-text3);
@@ -1616,6 +2030,28 @@
             padding: .1rem .3rem;
             font-size: .68rem;
             font-family: ui-monospace, monospace;
+        }
+
+        /* Hint inside canvas-wrap — bottom overlay, not flex centered */
+        .da-editor__canvas-wrap .da-editor__hint {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: 0;
+            padding: .5rem .9rem;
+            background: rgba(15, 23, 42, .88);
+            backdrop-filter: blur(6px);
+            border-top: 1px solid rgba(255, 255, 255, .08);
+            color: rgba(255, 255, 255, .78);
+            z-index: 4;
+            text-align: center;
+        }
+
+        .da-editor__canvas-wrap .da-editor__hint kbd {
+            background: rgba(255, 255, 255, .12);
+            border-color: rgba(255, 255, 255, .18);
+            color: #e2e8f0;
         }
 
         .da-editor__error {

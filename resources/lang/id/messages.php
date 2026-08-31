@@ -47,9 +47,11 @@ return [
     'crop_apply' => 'Terapkan crop',
     'editor_library' => 'Library',
     'editor_convert' => 'Konversi',
+    'editor_compress' => 'Kompresi',
     'library_grayscale' => 'Grayscale',
     'library_blur' => 'Blur',
     'library_sharpen' => 'Tajamkan',
+    'library_compress' => 'Kompresi',
     'library_apply' => 'Terapkan',
     'library_cancel' => 'Batal',
     'library_convert_webp' => 'Konversi ke WebP',
@@ -62,6 +64,12 @@ return [
     'save_add' => 'Simpan keduanya',
     'save_download' => 'Unduh hasil',
     'save_server' => 'Simpan ke server',
+    'editor_unsaved_badge' => 'Terkonversi — Simpan untuk terapkan',
+    'editor_compressed_badge' => 'Terkompresi — Simpan untuk terapkan',
+    'editor_cropped_badge' => 'Tercrop — Simpan untuk terapkan',
+    'editor_edited_badge' => 'Diedit — Simpan untuk terapkan',
+    'editor_info_title' => 'Info Gambar',
+    'editor_converting' => 'Mengkonversi…',
 
     // Keyboard hints
     'hint_scroll_zoom' => 'untuk zoom',
@@ -73,6 +81,7 @@ return [
     'max_files' => 'Anda hanya dapat mengunggah maksimal :max file.',
     'invalid_extension' => 'File ":file" memiliki ekstensi yang tidak valid ":extension". Diizinkan: :allowed.',
     'invalid_mime' => 'File ":file" memiliki tipe yang tidak valid ":mime". Diizinkan: :allowed.',
+    'preview_only_no_upload' => 'Upload dinonaktifkan pada mode preview-only.',
 
     // Image editor
     'invalid_image_data' => 'Data gambar tidak valid.',

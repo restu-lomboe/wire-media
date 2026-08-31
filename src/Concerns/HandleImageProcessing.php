@@ -34,6 +34,8 @@ trait HandleImageProcessing
                 return;
             }
 
+            $old = null;
+
             if ($mode === 'replace' && isset($this->uploadedFiles[$index])) {
                 // Delete old file (+ thumbnail) from storage
                 $old = $this->uploadedFiles[$index];
@@ -49,6 +51,11 @@ trait HandleImageProcessing
 
             $this->editorOpen = false;
             $this->editorIndex = null;
+
+            // For replace mode, also dispatch file-removed for old so parent can sync libraryPaths/galleryPaths
+            if ($old) {
+                $this->dispatch('file-removed', file: $old);
+            }
 
             $this->dispatch('image-processed', file: $stored, mode: $mode);
 
@@ -98,17 +105,16 @@ trait HandleImageProcessing
             throw new \RuntimeException(trans('wire-media::messages.editor_mime_not_allowed', ['mime' => $mime]));
         }
 
-        // Library mode: optimise the edited image too (resize, convert, thumbnail).
+        // For editor saves, keep raw bytes as exported from canvas (preserves UI compress/convert quality).
+        // Library re-encode is skipped to avoid inflating a 200KB canvas JPEG back to 2MB or losing explicit format.
         $optimized = null;
+        $thumbnailBytes = null;
 
         if ($this->imageLibraryAvailable()) {
-            $processed = $this->processImageBytes($bytes, $mime);
-
-            if ($processed) {
-                $bytes = $processed['bytes'];
-                $mime = $processed['mime'];
-                $extension = $this->extensionForMime($mime);
-                $optimized = $processed;
+            // Generate thumbnail only (400x400) without re-encoding main image
+            $thumbnailBytes = $this->buildThumbnailBytes($bytes, $mime);
+            if ($thumbnailBytes !== null) {
+                $optimized = ['thumbnail_bytes' => $thumbnailBytes];
             }
         }
 

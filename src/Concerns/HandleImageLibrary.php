@@ -28,6 +28,40 @@ trait HandleImageLibrary
     }
 
     /**
+     * Whether auto-compress (lossless) mode is enabled and usable.
+     * Independent from library — auto compress on upload only when :auto-compress="true".
+     * When library is active, upload optimize is also gated by autoCompress (no auto compress if both flags false).
+     */
+    protected function autoCompressAvailable(): bool
+    {
+        $enabled = isset($this->autoCompress)
+            ? (bool) $this->autoCompress
+            : (bool) config('wire-media.auto_compress', false);
+
+        return $enabled && class_exists('Intervention\Image\ImageManager');
+    }
+
+    /**
+     * Whether UI compress (editor slider) is enabled.
+     */
+    protected function uiAutoCompressAvailable(): bool
+    {
+        $enabled = isset($this->uiAutoCompress)
+            ? (bool) $this->uiAutoCompress
+            : (bool) config('wire-media.ui_auto_compress', false);
+
+        return (bool) $enabled;
+    }
+
+    /**
+     * Whether server-side compress transform is available (needs Intervention).
+     */
+    protected function compressTransformAvailable(): bool
+    {
+        return $this->uiAutoCompressAvailable() && class_exists('Intervention\Image\ImageManager');
+    }
+
+    /**
      * Build an Intervention Image manager for the configured driver.
      */
     protected function imageManager(string $driver = ''): mixed
@@ -176,6 +210,11 @@ trait HandleImageLibrary
             return null;
         }
 
+        // Prevent inflation: keep original if optimized is larger (e.g. PNG → WebP for already-compressed JPEG)
+        if (strlen($processed['bytes']) >= strlen($bytes)) {
+            return null;
+        }
+
         $base = Str::uuid()->toString().'-optimized';
         $extension = $this->extensionForMime($processed['mime']);
         $optimizedPath = rtrim($this->directory, '/').'/'.$base.'.'.$extension;
@@ -201,6 +240,113 @@ trait HandleImageLibrary
             'extension' => $extension,
             'thumbnail' => $thumbnailPath,
             'thumbnail_url' => $thumbnailUrl,
+        ];
+    }
+
+    /**
+     * Compress image bytes losslessly (no resize) — re-encode with same MIME
+     * at high quality, stripping metadata. Used for auto_compress mode.
+     *
+     * @return array{bytes: string, mime: string}|null
+     */
+    protected function processAutoCompressBytes(string $bytes, string $sourceMime): ?array
+    {
+        try {
+            $image = $this->imageManager()->decode($bytes);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        // High quality but still compressed (92 for JPEG/WebP, lossless for PNG/GIF)
+        $quality = 92;
+
+        try {
+            $encoded = $this->encodeImage($image, $sourceMime, $quality);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        return [
+            'bytes' => $encoded,
+            'mime' => $sourceMime,
+        ];
+    }
+
+    /**
+     * Compress with explicit quality 0-100 (UI slider). No resize, same MIME unless format overridden.
+     *
+     * @return array{bytes: string, mime: string}|null
+     */
+    protected function processCompressBytes(string $bytes, string $sourceMime, int $quality): ?array
+    {
+        $quality = max(1, min(100, $quality));
+
+        try {
+            $image = $this->imageManager()->decode($bytes);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        try {
+            $encoded = $this->encodeImage($image, $sourceMime, $quality);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        return [
+            'bytes' => $encoded,
+            'mime' => $sourceMime,
+        ];
+    }
+
+    /**
+     * Optimize a stored image via auto-compress (no resize, no format change).
+     *
+     * @return array{path: string, mime: string, extension: string, thumbnail: null, thumbnail_url: null}|null
+     */
+    protected function optimizeStoredImageAutoCompress(string $path, string $sourceMime): ?array
+    {
+        $bytes = Storage::disk($this->disk)->get($path);
+
+        if ($bytes === null) {
+            return null;
+        }
+
+        $processed = $this->processAutoCompressBytes($bytes, $sourceMime);
+
+        if ($processed === null) {
+            return null;
+        }
+
+        // Only replace if actually smaller (avoid inflating PNG etc.)
+        if (strlen($processed['bytes']) >= strlen($bytes)) {
+            return null;
+        }
+
+        $extension = $this->extensionForMime($processed['mime']);
+        $base = Str::uuid()->toString().'-compressed';
+        $compressedPath = rtrim($this->directory, '/').'/'.$base.'.'.$extension;
+
+        Storage::disk($this->disk)->put($compressedPath, $processed['bytes']);
+
+        if ($compressedPath !== $path && Storage::disk($this->disk)->exists($path)) {
+            Storage::disk($this->disk)->delete($path);
+        }
+
+        return [
+            'path' => $compressedPath,
+            'mime' => $processed['mime'],
+            'extension' => $extension,
+            'thumbnail' => null,
+            'thumbnail_url' => null,
         ];
     }
 
@@ -242,7 +388,10 @@ trait HandleImageLibrary
      */
     public function libraryTransformDataUrl(string $dataUrl, string $transform, ?array $params = null): ?string
     {
-        if (! $this->imageLibraryAvailable()) {
+        $isLibrary = $this->imageLibraryAvailable();
+        $isCompress = $transform === 'compress' && $this->compressTransformAvailable();
+
+        if (! $isLibrary && ! $isCompress) {
             return null;
         }
 
@@ -317,6 +466,13 @@ trait HandleImageLibrary
                         $params['width'] !== null ? (int) $params['width'] : null,
                         $params['height'] !== null ? (int) $params['height'] : null,
                     );
+                    break;
+
+                case 'compress':
+                    // Quality-only re-encode (UI slider 0-100), no resize/transform.
+                    $q = isset($params['quality']) ? (int) $params['quality'] : 85;
+                    $q = max(1, min(100, $q));
+                    $params['quality'] = $q;
                     break;
 
                 case 'convert':

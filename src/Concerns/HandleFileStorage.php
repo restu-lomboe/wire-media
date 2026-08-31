@@ -23,14 +23,28 @@ trait HandleFileStorage
             $extension = strtolower($file->getClientOriginalExtension());
             $optimized = null;
 
-            // Library mode: optimise image in place (resize, convert, thumbnail).
-            if (str_starts_with($mime, 'image/') && $this->imageLibraryAvailable()) {
+            // Auto-compress on upload only when :auto-compress="true".
+            // - Library mode + autoCompress => resize/convert/thumbnail (WebP)
+            // - Standalone autoCompress => lossless re-encode (same mime)
+            // - Only :ui-auto-compress="true" or no flags => no auto compress (compress via edit only)
+            $hasAutoCompress = (bool) ($this->autoCompress ?? config('wire-media.auto_compress', false));
+
+            if (str_starts_with($mime, 'image/') && $this->imageLibraryAvailable() && $hasAutoCompress) {
                 $optimized = $this->optimizeStoredImage($path, $mime);
 
                 if ($optimized) {
                     $path = $optimized['path'];
                     $mime = $optimized['mime'];
                     $extension = $optimized['extension'];
+                }
+            } elseif (str_starts_with($mime, 'image/') && $this->autoCompressAvailable()) {
+                $compressed = $this->optimizeStoredImageAutoCompress($path, $mime);
+
+                if ($compressed) {
+                    $path = $compressed['path'];
+                    $mime = $compressed['mime'];
+                    $extension = $compressed['extension'];
+                    $optimized = $compressed;
                 }
             }
 
