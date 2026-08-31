@@ -565,6 +565,22 @@ The image editor is now a **fullscreen overlay** (`position: fixed; z-index; fle
 - `auto_compress` (lossless same-mime `q92`, no resize) gated by `:auto-compress` — no auto compress when both flags false; `ui_auto_compress` slider `0–100%` in editor (same UX as grayscale, `Apply/Cancel`, `PNG→JPEG` at `<100%`).
 - Server `storeFile`/`storeDataUrl` only keep processed if **smaller** (prevents `200KB→2MB` inflation) and `saveToServer` keeps raw `canvas` bytes for editor saves (no re-encode).
 
+### Multiple instances on one page (avoid blink)
+
+When using several `<livewire:wire-media>` on the same page (e.g. gallery + preview-only + docs + library), always give each a unique `wire:key` — otherwise Livewire reuses `wire:model="files"` state between neighbours and the 3rd list will blink (appear → disappear) especially with a `previewOnly` in the middle:
+
+```blade
+<livewire:wire-media wire:key="gallery" directory="uploads/gallery" :multiple="true" />
+
+<livewire:wire-media wire:key="preview" :preview-only="true" :existing-files="['upload/photo.jpg']" />
+
+<livewire:wire-media wire:key="docs" directory="uploads/docs" :accepted-extensions="['pdf','docx']" />
+
+<livewire:wire-media wire:key="library" directory="uploads/library" :use-image-library="true" :auto-compress="true" />
+```
+
+`wire:key` locks each component ID so `updatedFiles`/`uploadedFiles` don't get mixed during DOM morph. Clear view cache after adding: `php artisan view:clear`.
+
 ---
 
 ## 🧪 Testing
