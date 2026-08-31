@@ -1,12 +1,12 @@
 # WireMedia
 
 [![Latest Version](https://img.shields.io/packagist/v/developerawam/wire-media.svg?style=flat-square)](https://packagist.org/packages/developerawam/wire-media)
-[![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=flat-square&logo=laravel)](https://laravel.com)
+[![Laravel](https://img.shields.io/badge/Laravel-12.x%20%7C%2013.x-FF2D20?style=flat-square&logo=laravel)](https://laravel.com)
 [![Livewire](https://img.shields.io/badge/Livewire-v3%20%7C%20v4-FB70A9?style=flat-square)](https://livewire.laravel.com)
 [![License](https://img.shields.io/packagist/l/developerawam/wire-media.svg?style=flat-square)](LICENSE.md)
 
-**Premium Livewire media upload & image editor for Laravel 12.**  
-Upload, crop, zoom, rotate, flip, **fullscreen split file viewer** (preview + details side-by-side) and **fullscreen image editor** — zero external JS dependencies.
+**Premium Livewire media upload & image editor for Laravel 12/13.**  
+Upload, crop, zoom, rotate, flip, **fullscreen split file viewer** (preview + details side-by-side) and **fullscreen image editor with live info** — zero external JS dependencies.
 
 > **Works out of the box with Livewire v3 AND v4.** Component assets (styles + scripts) are injected via Livewire's `@assets` mechanism, so they are loaded once per page, deduplicated, and **never broken by Livewire's DOM morphing after an upload**.
 
@@ -16,10 +16,11 @@ Upload, crop, zoom, rotate, flip, **fullscreen split file viewer** (preview + de
 
 | Dependency | Version       |
 |------------|---------------|
-| PHP        | ^8.2          |
-| Laravel    | ^12.0         |
+| PHP        | ^8.2 - ^8.3   |
+| Laravel    | ^12.0 \|\| ^13.0 |
 | Livewire   | ^3.0 or ^4.0  |
 | Alpine.js  | ^3.x          |
+| Intervention Image | ^4.0 (optional, for library & compress) |
 
 ---
 
@@ -36,6 +37,11 @@ Ensure your layout includes Alpine.js and Livewire scripts:
 @livewireStyles
 @livewireScripts
 ```
+
+> **Large images:** If you edit large photos (3-4 MB canvas `dataUrl`), increase Livewire payload limit in `config/livewire.php`:
+> ```php
+> 'payload' => ['max_size' => 5 * 1024 * 1024, // 5MB
+> ```
 
 ### Publish (optional)
 
@@ -91,6 +97,23 @@ server-side so they stay optimised.
 > **Fallback:** when the flag is off, or `intervention/image` is not installed,
 > WireMedia silently behaves like the default mode — nothing breaks.
 
+### Optional: Auto Compress
+
+Lossless re-encode without resize, keep original format at high quality (`92`):
+
+```env
+WIRE_MEDIA_AUTO_COMPRESS=true
+```
+
+When `:auto-compress="true"` (or config), **upload** is automatically compressed (same mime, no resize) **only if smaller** — prevents `200KB → 2MB` inflation. Requires `intervention/image`. Library mode has priority when both are enabled and `auto-compress` is true (`resize+webp`).
+
+| Prop | Config | Env |
+|------|--------|-----|
+| `:auto-compress="true"` | `auto_compress` | `WIRE_MEDIA_AUTO_COMPRESS` |
+| `:ui-auto-compress="true"` | `ui_auto_compress` | `WIRE_MEDIA_UI_AUTO_COMPRESS` |
+
+`ui-auto-compress` shows a **Compress slider 0–100%** in the editor toolbar (same UX as grayscale). `Apply` bakes via server `compress` transform if payload `<900KB` else client `canvas.toDataURL(mime, quality)` (with `PNG→JPEG` fallback at `<100%`). No visual filter preview — quality only affects export size.
+
 ---
 
 ## 🚀 Basic Usage
@@ -120,7 +143,16 @@ server-side so they stay optimised.
 | `existing-files`      | `mixed`   | `null`      | Pre-load files (array of paths, metadata, or Model)       |
 | `model-attribute`     | `string`  | `null`      | Model column when `existing-files` is an Eloquent Model   |
 | `dark-mode`           | `bool`    | `false`     | Force dark mode (also auto-detects OS preference)         |
-| `use-image-library`   | `bool`    | `false`     | Enable image processing for this instance (requires Intervention Image) |
+| `use-image-library`   | `bool`    | `false`     | Enable image processing for this instance (requires Intervention) |
+| `auto-compress`       | `bool`    | `false`     | Lossless auto compress on upload (same mime, q92, no resize) |
+| `ui-auto-compress`    | `bool`    | `false`     | Show editor Compress slider 0–100%                        |
+| `preview-only`        | `bool`    | `false`     | Read-only: hide dropzone/edit/delete, only preview       |
+
+**Auto-compress gating:**
+- `previewOnly=false` + `autoCompress=false` + `uiAutoCompress=false` → **no auto compress** (ori stored)
+- `autoCompress=true` → upload compressed (library `webp` if `useImageLibrary`, else lossless)
+- `uiAutoCompress=true` only → upload ori, compress via `Edit → slider → Apply → Save`
+- both `true` → upload compressed + UI available
 
 ---
 
@@ -131,6 +163,18 @@ server-side so they stay optimised.
 - Single or multiple files
 - Extension, MIME type & file size validation
 - Max file count enforcement
+- `previewOnly` blocks `updatedFiles/removeFile/clearAll/openEditor`
+
+### Preview-Only Mode
+Read-only gallery from existing files only:
+
+```blade
+<livewire:wire-media :preview-only="true" :existing-files="['upload/photo.jpg', 'https://cdn.example.com/img.jpg']" :multiple="true" />
+```
+
+- Hides dropzone, edit, delete, clearAll, editor
+- Still shows grid + lightbox (download + zoom, edit hidden)
+- `existing-files` supports: **Storage** (`uploads/gallery/x.jpg`), **public/** dynamic folder (`upload/`, `custom_folder/` via `public_path()` → `asset()`), **external URL** (`https://...`, S3 `https://bucket.s3.amazonaws.com/...`), **missing** → `data:image/svg+xml` placeholder “Image not found”.
 
 ### Image Viewer — Fullscreen Split View
 Click **any card thumbnail** (image, PDF or document) or the **↔ fullscreen button** (images).
@@ -152,12 +196,12 @@ The viewer opens as a **fullscreen modal split into two panes**:
 ```
 
 **Left pane — preview** (adapts to file type):
-- **Image** → `<img>` with loading spinner
+- **Image** → `<img>` with loading spinner (hidden for docs)
 - **PDF** → inline `<iframe>` embed (`#toolbar=0&navpanes=0`)
 - **Other documents** → extension badge + "no preview" placeholder
 
 **Right pane — details** (auto-fills on every slide):
-- File name + **status badge** (`New` / `Existing`)
+- File name + **status badge** (`New` / `Existing` / `Missing`)
 - **Type** (MIME + extension)
 - **Size** (human readable + raw bytes)
 - **Disk**
@@ -168,28 +212,31 @@ The viewer opens as a **fullscreen modal split into two panes**:
 **Navigation & controls:**
 - Prev / Next (`←` `→` keyboard, buttons, swipe on mobile)
 - Scrollable thumbnail strip (images show thumbnails; documents show extension badges)
-- Zoom (buttons, scroll wheel, `+` / `-` / `0` — images only)
+- Zoom (buttons, scroll wheel, `+` / `-` / `0` — images only, hidden when `previewOnly`)
 - **Download** in header
-- **Edit** button in header (images only → opens the fullscreen editor)
+- **Edit** button in header (images only → opens the fullscreen editor, hidden when `previewOnly`)
 - `Esc` to close
 
 > The details panel is a dedicated component with **sticky header**, scrollable list, and a responsive layout: on narrow screens (<768px) the panes **stack vertically** (preview on top, details below).
 
-### Image Editor — Fullscreen
+### Image Editor — Fullscreen Split Stage
 Click ✏️ (on an image card, in the viewer, or in the detail panel) to open the editor.
 
-The editor opens as a **fullscreen overlay** (`position: fixed`, covers the viewport):
+The editor opens as a **fullscreen overlay** (`position: fixed`, covers the viewport) with **split stage**: canvas left + live info right:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Zoom ▾ ⬚ ▴  Rotate ⟳ ⟲  Flip ⇋ ⇵  Crop ▧ ✓   ...     Reset  ✕  │  ← toolbar
-├──────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│                         CANVAS  (flexible, fills the space)      │
-│                                                                  │
-├──────────────────────────────────────────────────────────────────┤
-│ ◉ Replace original  ◉ Keep both     ↓ Download   💾 Save   Cancel │  ← save bar
+│  Zoom ▾ ⬚ ▴  Rotate ⟳ ⟲  Flip ⇋ ⇵  Crop ▧ ✓  Compress  Library ... Reset  ✕  │  ← toolbar
+├──────────────────────────────────┬───────────────────────────────┤
+│                                  │  Image Info  [badge]          │
+│         CANVAS  (flex, centered) │  Name                         │
+│         + crop overlay           │  Type (mime)                  │
+│         + Converting overlay     │  Size (human + bytes ↓/↑)     │
+│                                  │  Disk / Path                  │
+├──────────────────────────────────┴───────────────────────────────┤
+│ ◉ Replace original  ◉ Keep both     ↓ Download   💾 Save   Cancel │  ← save bar (+ pulse badge when edited)
 └──────────────────────────────────────────────────────────────────┘
+                 [hint: Scroll/Drag/Crop overlay at canvas bottom]
 ```
 
 | Action       | How                                   |
@@ -199,11 +246,15 @@ The editor opens as a **fullscreen overlay** (`position: fixed`, covers the view
 | Rotate       | CW/CCW 90° buttons                    |
 | Flip         | Horizontal or vertical buttons        |
 | Crop         | Enable → drag to select → Apply ✓    |
-| Reset        | Reset all transforms (undoes crops)   |
+| Compress     | Slider 0–100% → Apply (PNG→JPEG at <100%) |
+| Library      | Grayscale/Blur/Sharpen slider + Convert WebP/JPG/PNG |
+| Reset        | Reset all transforms (undoes crops/convert/compress) |
 
 - **Close ✕** button pinned to the top-right of the toolbar
 - **Cancel** also available in the save bar
-- Save options: **Replace original**, **Keep both**, or **Download locally**
+- **Live info** on the right updates instantly on `convert/compress/crop` (type/size delta `↓ smaller / ↑ larger`) and shows `Compressed / Converted / Cropped / Edited — Save to apply` badge + pulse on `Save to server` when `hasChanges`.
+- **Loading** overlay `Converting…` + spinner on `Apply` and `Convert` (server `libraryTransformDataUrl` or client `toDataURL`).
+- Save options: **Replace original** (dispatches `file-removed` for old + `image-processed`), **Keep both**, or **Download locally**
 
 ### Detail Panel (fallback, non-image)
 For non-image files in the standard view, opening the card previously used an inline detail panel. With the fullscreen split viewer this is no longer needed — every file type now opens the unified fullscreen viewer instead.
@@ -212,9 +263,9 @@ For non-image files in the standard view, opening the card previously used an in
 Pre-load existing files:
 
 ```blade
-{{-- From path array --}}
+{{-- From path array (storage, public, or external) --}}
 <livewire:wire-media
-    :existing-files="['uploads/photo.jpg', 'uploads/doc.pdf']"
+    :existing-files="['uploads/photo.jpg', 'upload/public-img.png', 'https://cdn.example.com/img.jpg']"
     :multiple="true"
 />
 
@@ -223,6 +274,9 @@ Pre-load existing files:
     :existing-files="$user"
     model-attribute="avatar"
 />
+
+{{-- Preview only (no upload) --}}
+<livewire:wire-media :preview-only="true" :existing-files="['upload/gallery.jpg']" />
 ```
 
 ### Dark Mode
@@ -233,14 +287,23 @@ Auto-detects OS preference. Force with `:dark-mode="true"`.
 ## 📸 Usage Examples
 
 ```blade
-{{-- Image gallery with editor --}}
+{{-- Image gallery with editor + auto compress --}}
 <livewire:wire-media
     :multiple="true"
     :accepted-mime-types="['image/*']"
     :max-size-mb="10"
     :max-files="20"
+    :auto-compress="true"
+    :ui-auto-compress="true"
     label="Photo Gallery"
     :dark-mode="true"
+/>
+
+{{-- Preview only gallery (existing public/S3) --}}
+<livewire:wire-media
+    :preview-only="true"
+    :existing-files="['upload/photo.jpg', 'https://bucket.s3.amazonaws.com/photo.jpg']"
+    :multiple="true"
 />
 
 {{-- Document attachments --}}
@@ -258,6 +321,15 @@ Auto-detects OS preference. Force with `:dark-mode="true"`.
     :accepted-mime-types="['image/*']"
     :max-size-mb="20"
 />
+
+{{-- Library optimized --}}
+<livewire:wire-media
+    :multiple="true"
+    :use-image-library="true"
+    :auto-compress="true"
+    :ui-auto-compress="true"
+    directory="uploads/library"
+/>
 ```
 
 ---
@@ -267,11 +339,11 @@ Auto-detects OS preference. Force with `:dark-mode="true"`.
 | Event             | Payload          | Description                     |
 |-------------------|------------------|---------------------------------|
 | `file-uploaded`   | `{ file }`       | New file stored                 |
-| `file-removed`    | `{ file }`       | File deleted from storage       |
+| `file-removed`    | `{ file }`       | File deleted from storage (also dispatched on `replace` for old file) |
 | `files-cleared`   | —                | All files deleted               |
-| `image-processed` | `{ file, mode }` | Edited image saved to server    |
+| `image-processed` | `{ file, mode }` | Edited image saved to server (`replace`/`add`) |
 
-> The events are dispatched **globally** through the browser (not component-scoped), so they can be listened to from **any Livewire component**, plain JavaScript, or Alpine.
+> The events are dispatched **globally** through the browser (not component-scoped), so they can be listened to from **any Livewire component**, plain JavaScript, or Alpine. On `replace`, both `file-removed` (old) and `image-processed` (new) are dispatched for parent sync.
 
 ### 🙉 Listening from a Livewire component
 
@@ -422,8 +494,8 @@ Livewire::dispatch('file-uploaded', [
 [
     'original_name' => 'photo.jpg',
     'path'          => 'uploads/uuid.webp',
-    'disk'          => 'public',
-    'url'           => 'https://app.test/storage/uploads/uuid.webp',
+    'disk'          => 'public', // or 'external' for CDN/S3 URLs
+    'url'           => 'https://app.test/storage/uploads/uuid.webp', // or asset() / external URL
     'size'          => 204800,
     'size_human'    => '200 KB',
     'mime'          => 'image/webp',
@@ -432,6 +504,8 @@ Livewire::dispatch('file-uploaded', [
     'is_pdf'        => false,
     'is_document'   => false,
     'is_existing'   => false,
+    'is_external'   => false, // true for https://... URLs
+    'is_missing'    => false, // true for placeholder
     'thumbnail'     => 'uploads/uuid-thumb.webp', // only in image-library mode
     'thumbnail_url' => 'https://app.test/storage/uploads/uuid-thumb.webp',
     'uploaded_at'   => '2025-01-01T00:00:00+00:00',
@@ -440,7 +514,7 @@ Livewire::dispatch('file-uploaded', [
 
 > In image-library mode, the original image is replaced by the optimised variant and
 > `path`/`url`/`mime`/`extension` reflect the **processed** file, with a `thumbnail`
-> variant generated for the grid.
+> variant generated for the grid. External URLs keep their original URL, public/ folder files use `asset()`.
 
 ---
 
@@ -448,7 +522,7 @@ Livewire::dispatch('file-uploaded', [
 
 Ships with **English** (`en`) and **Indonesian** (`id`).
 
-All UI labels — including the fullscreen viewer's details panel — are translatable and are passed to the JavaScript layer (`LightboxManager`) via a `labels` object, so the panel renders fully localised strings.
+All UI labels — including the fullscreen viewer's details panel and editor's live info (`Cropped/Compressed/Converted/Edited — Save to apply`, `Image Info`, `Converting…`) — are translatable and are passed to the JavaScript layer (`LightboxManager`) via a `labels` object, so the panel renders fully localised strings.
 
 ---
 
@@ -467,21 +541,29 @@ Styles and scripts are rendered through Livewire's **`@assets`** directive (inst
 Renamed conceptually from a "lightbox" to a **file viewer**:
 
 - Handles **all file types** — images (`<img>`), PDFs (`<iframe>`), and other documents (extension badge + placeholder).
-- **Split layout**: responsive preview pane (left) + details pane (right, sticky header, scrollable).
-- Edit button and zoom bar are **conditionally hidden** for non-image files.
+- **Split layout**: responsive preview pane (left) + details pane (right, sticky header, scrollable). `previewOnly` hides edit/zoom for images.
+- Edit button and zoom bar are **conditionally hidden** for non-image files and `previewOnly`.
 - Thumbnail strip renders extension badges for documents.
 
-### Fullscreen image editor
+### Fullscreen image editor v2
 
-The image editor is now a **fullscreen overlay** (`position: fixed; z-index; flex column`) instead of an inline card:
+The image editor is now a **fullscreen overlay** (`position: fixed; z-index; flex column`) with **split stage** (canvas left + live info right):
 
-- Toolbar (top) → canvas (flexible middle) → save bar (bottom).
-- Canvas uses `flex: 1` and `max-height: 100%` so it fills the available viewport space.
+- Toolbar (top) → stage (canvas flex + info 320px, stack on mobile) → save bar (bottom).
+- Canvas uses `flex: 1` and `max-height: 100%` so it fills the available viewport space, `hint` overlay at bottom inside `canvas-wrap`.
+- Live info panel on the right shows `Name/Type/Size (↓/↑ delta)/Disk/Path` and badge `Cropped/Compressed/Converted/Edited — Save to apply` with pulse on `Save`, updates instantly on `convert/compress/crop`.
+- Loading overlay `Converting…` on `libraryTransform`/`compress Apply` (server `<900KB` else client `canvas.toDataURL` with `PNG→JPEG` fallback).
 - Added a dedicated **Close ✕** button in the toolbar (previously only "Cancel" in the save bar).
 
-### Unified interaction model
+### Preview-only & external/public support
 
-Every card thumbnail — image **or** document — now opens the same fullscreen viewer, giving a consistent UX across galleries and attachment lists.
+- New prop `:preview-only="true"` / `WIRE_MEDIA_PREVIEW_ONLY` hides dropzone/edit/delete/clearAll/editor, keeps grid + lightbox view. Guarded in `updatedFiles/removeFile/clearAll/openEditor`.
+- `existing-files` now supports **dynamic public folders** (`public/upload`, `public/custom/...` via `public_path()`), **external URLs** (`https://...`, S3), and **missing → placeholder** `data:image/svg+xml` “Image not found” with `is_missing` flag.
+
+### Auto compress & UI compress
+
+- `auto_compress` (lossless same-mime `q92`, no resize) gated by `:auto-compress` — no auto compress when both flags false; `ui_auto_compress` slider `0–100%` in editor (same UX as grayscale, `Apply/Cancel`, `PNG→JPEG` at `<100%`).
+- Server `storeFile`/`storeDataUrl` only keep processed if **smaller** (prevents `200KB→2MB` inflation) and `saveToServer` keeps raw `canvas` bytes for editor saves (no re-encode).
 
 ---
 
@@ -489,7 +571,27 @@ Every card thumbnail — image **or** document — now opens the same fullscreen
 
 ```bash
 composer test
+# 45+ Pest tests in tests/WireMediaProductionTest.php covering:
+# upload/validation/previewOnly/existing (storage/public/external/placeholder/model), autoCompress/library, editor, events, helpers
 ```
+
+---
+
+## 🤖 AI Skill for Agents (Laravel Boost & Opencode)
+
+This package ships an **AI skill** for Laravel Boost & Opencode at `resources/boost/skills/wire-media/SKILL.md` (auto-discovered via `resources/boost/skills`).
+
+After `composer require developerawam/wire-media`:
+
+```bash
+php artisan boost:list-skills
+# Found 5 skills
+# wire-media | developerawam/wire-media  (or wire-media* | local if copied to .ai/skills)
+```
+
+Trigger when you mention `wire-media`, `file upload`, `image compress/crop/convert`, `preview-only`, or Livewire media handling. The skill covers all 15 props, `existing-files` (Storage `uploads/`, public `upload/` dynamic, external `https://`/S3, missing placeholder), Image Library & Auto/UI Compress gating, Editor split stage with live info, Viewer split, and 4 browser events (`file-uploaded/removed/cleared/image-processed` with `replace` dispatches `file-removed` + `image-processed`).
+
+For local development, the skill is also available as `.agents/skills/wire-media/SKILL.md` (Opencode) and `.ai/skills/wire-media/SKILL.md` (Boost user).
 
 ---
 
