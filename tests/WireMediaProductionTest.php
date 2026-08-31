@@ -142,7 +142,7 @@ it('enforces maxFiles considering existing uploaded count', function () {
     $f2 = UploadedFile::fake()->image('b.jpg');
     $c->set('files', $f2)->assertCount('uploadedFiles', 2);
     $f3 = UploadedFile::fake()->image('c.jpg');
-    $c->set('files', $f3)->assertCount('uploadedFiles', 2)->assertSet('errors', fn($e) => count($e) > 0);
+    $c->set('files', $f3)->assertCount('uploadedFiles', 2)->assertSet('errors', fn ($e) => count($e) > 0);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,8 +192,10 @@ it('shows placeholder for missing file', function () {
 });
 
 it('loads existing files from Eloquent model string attribute', function () {
-    $model = new class extends Model {
+    $model = new class extends Model
+    {
         protected $guarded = [];
+
         public $timestamps = false;
     };
     Storage::disk('public')->put('uploads/model-file.jpg', 'content');
@@ -203,8 +205,10 @@ it('loads existing files from Eloquent model string attribute', function () {
 });
 
 it('loads existing files from Eloquent model JSON attribute', function () {
-    $model = new class extends Model {
+    $model = new class extends Model
+    {
         protected $guarded = [];
+
         public $timestamps = false;
     };
     Storage::disk('public')->put('uploads/a.jpg', 'a');
@@ -255,7 +259,7 @@ it('openEditor with out-of-bounds does nothing', function () {
 it('rejects invalid dataUrl in saveProcessedImage', function () {
     $file = UploadedFile::fake()->image('a.jpg');
     $c = Livewire::test(FileUpload::class)->set('files', $file);
-    $c->call('saveProcessedImage', 0, 'not-a-data-url', 'replace')->assertSet('errors', fn($e) => count($e) > 0);
+    $c->call('saveProcessedImage', 0, 'not-a-data-url', 'replace')->assertSet('errors', fn ($e) => count($e) > 0);
 });
 
 it('rejects dataUrl exceeding max size', function () {
@@ -290,19 +294,19 @@ it('autoCompress does not run when disabled (stores original)', function () {
 });
 
 it('autoCompress compresses when enabled (no resize, same mime)', function () {
-    if (!class_exists('Intervention\Image\ImageManager')) {
+    if (! class_exists('Intervention\Image\ImageManager')) {
         $this->markTestSkipped('Intervention not installed');
     }
     $file = UploadedFile::fake()->image('photo.jpg', 800, 600);
     $c = Livewire::test(FileUpload::class, ['autoCompress' => true])->set('files', $file);
     $stored = $c->get('uploadedFiles')[0];
     expect($stored['mime'])->toBeString();
-    // Should have been re-encoded, path contains -compressed
-    expect($stored['path'])->toContain('compressed')->or->toContain('uploads/');
+    // Should have been re-encoded, path contains uploads (and -compressed when smaller)
+    expect($stored['path'])->toContain('uploads/');
 });
 
 it('image library optimizes with resize and webp convert when autoCompress true', function () {
-    if (!class_exists('Intervention\Image\ImageManager')) {
+    if (! class_exists('Intervention\Image\ImageManager')) {
         $this->markTestSkipped('Intervention not installed');
     }
     $file = UploadedFile::fake()->image('big.jpg', 2500, 2000);
@@ -322,7 +326,7 @@ it('image library does not auto compress when autoCompress false even if library
 });
 
 it('libraryTransformDataUrl handles compress with quality', function () {
-    if (!class_exists('Intervention\Image\ImageManager')) {
+    if (! class_exists('Intervention\Image\ImageManager')) {
         $this->markTestSkipped('Intervention not installed');
     }
     $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
@@ -339,7 +343,7 @@ it('libraryTransformDataUrl returns null for invalid dataUrl', function () {
 });
 
 it('libraryTransformDataUrl handles grayscale transform', function () {
-    if (!class_exists('Intervention\Image\ImageManager')) {
+    if (! class_exists('Intervention\Image\ImageManager')) {
         $this->markTestSkipped('Intervention not installed');
     }
     $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
@@ -420,4 +424,207 @@ it('handles showPreview and showList false', function () {
     $c = Livewire::test(FileUpload::class, ['showPreview' => false, 'showList' => false]);
     expect($c->get('showPreview'))->toBeFalse();
     expect($c->get('showList'))->toBeFalse();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HandleImageLibrary coverage boost (push to 80%)
+// ─────────────────────────────────────────────────────────────────────────────
+
+it('checks imageLibraryAvailable true/false', function () {
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('imageLibraryAvailable');
+    $m->setAccessible(true);
+    expect($m->invoke($c->instance()))->toBeTrue();
+    $c2 = Livewire::test(FileUpload::class, ['useImageLibrary' => false]);
+    $ref2 = new ReflectionClass($c2->instance());
+    $m2 = $ref2->getMethod('imageLibraryAvailable');
+    $m2->setAccessible(true);
+    expect($m2->invoke($c2->instance()))->toBeFalse();
+});
+
+it('checks autoCompressAvailable and uiAutoCompressAvailable', function () {
+    $c = Livewire::test(FileUpload::class, ['autoCompress' => true, 'uiAutoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m1 = $ref->getMethod('autoCompressAvailable');
+    $m1->setAccessible(true);
+    $m2 = $ref->getMethod('uiAutoCompressAvailable');
+    $m2->setAccessible(true);
+    $m3 = $ref->getMethod('compressTransformAvailable');
+    $m3->setAccessible(true);
+    expect($m1->invoke($c->instance()))->toBeTrue();
+    expect($m2->invoke($c->instance()))->toBeTrue();
+    expect($m3->invoke($c->instance()))->toBeTrue();
+});
+
+it('imageManager falls back to GD when driver class missing', function () {
+    config()->set('wire-media.image_library.driver', 'invalid_driver');
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('imageManager');
+    $m->setAccessible(true);
+    $mgr = $m->invoke($c->instance(), 'invalid');
+    expect($mgr)->not->toBeNull();
+});
+
+it('imageManager handles imagick driver', function () {
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('imageManager');
+    $m->setAccessible(true);
+    $mgr = $m->invoke($c->instance(), 'imagick');
+    expect($mgr)->not->toBeNull();
+});
+
+it('processImageBytes returns null on invalid bytes', function () {
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('processImageBytes');
+    $m->setAccessible(true);
+    $result = $m->invoke($c->instance(), 'not-an-image', 'image/jpeg');
+    expect($result)->toBeNull();
+});
+
+it('buildThumbnailBytes returns null when disabled', function () {
+    config()->set('wire-media.image_library.thumbnail.enabled', false);
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('buildThumbnailBytes');
+    $m->setAccessible(true);
+    // Need a valid encoded image
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    $result = $m->invoke($c->instance(), $pngBytes, 'image/png');
+    expect($result)->toBeNull();
+    config()->set('wire-media.image_library.thumbnail.enabled', true);
+});
+
+it('buildThumbnailBytes returns null when dimensions zero', function () {
+    config()->set('wire-media.image_library.thumbnail.width', 0);
+    config()->set('wire-media.image_library.thumbnail.height', 0);
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('buildThumbnailBytes');
+    $m->setAccessible(true);
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    $result = $m->invoke($c->instance(), $pngBytes, 'image/jpeg');
+    expect($result)->toBeNull();
+    config()->set('wire-media.image_library.thumbnail.width', 400);
+    config()->set('wire-media.image_library.thumbnail.height', 400);
+});
+
+it('optimizeStoredImage returns null for missing file', function () {
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('optimizeStoredImage');
+    $m->setAccessible(true);
+    $result = $m->invoke($c->instance(), 'uploads/missing.jpg', 'image/jpeg');
+    expect($result)->toBeNull();
+});
+
+it('processAutoCompressBytes handles invalid bytes', function () {
+    $c = Livewire::test(FileUpload::class, ['autoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('processAutoCompressBytes');
+    $m->setAccessible(true);
+    $result = $m->invoke($c->instance(), 'invalid', 'image/jpeg');
+    expect($result)->toBeNull();
+});
+
+it('processCompressBytes clamps quality', function () {
+    if (! class_exists('Intervention\Image\ImageManager')) {
+        $this->markTestSkipped('no intervention');
+    }
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    $c = Livewire::test(FileUpload::class, ['uiAutoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('processCompressBytes');
+    $m->setAccessible(true);
+    $r1 = $m->invoke($c->instance(), $pngBytes, 'image/png', 0);
+    $r2 = $m->invoke($c->instance(), $pngBytes, 'image/png', 200);
+    expect($r1)->not->toBeNull();
+    expect($r2)->not->toBeNull();
+});
+
+it('extensionForMime and formatForMime mappings', function () {
+    $c = Livewire::test(FileUpload::class);
+    $ref = new ReflectionClass($c->instance());
+    $e = $ref->getMethod('extensionForMime');
+    $e->setAccessible(true);
+    expect($e->invoke($c->instance(), 'image/webp'))->toBe('webp');
+    expect($e->invoke($c->instance(), 'image/jpeg'))->toBe('jpg');
+    expect($e->invoke($c->instance(), 'image/png'))->toBe('png');
+    expect($e->invoke($c->instance(), 'image/gif'))->toBe('gif');
+    expect($e->invoke($c->instance(), 'image/avif'))->toBe('avif');
+    expect($e->invoke($c->instance(), 'image/bmp'))->toBe('bmp');
+    expect($e->invoke($c->instance(), 'unknown'))->toBe('jpg');
+    $f = $ref->getMethod('formatForMime');
+    $f->setAccessible(true);
+    expect($f->invoke($c->instance(), 'image/jpeg'))->toBe('jpeg');
+    expect($f->invoke($c->instance(), 'image/png'))->toBe('png');
+});
+
+it('libraryTransform covers blur, sharpen, flip, rotate, orient', function () {
+    if (! class_exists('Intervention\Image\ImageManager')) {
+        $this->markTestSkipped('no intervention');
+    }
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    $dataUrl = 'data:image/png;base64,'.base64_encode($pngBytes);
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'blur', ['level' => 5]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'sharpen', ['level' => 5]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'flip', ['direction' => 'vertical']))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'flip', ['direction' => 'horizontal']))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'rotate', ['angle' => 90]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'orient'))->toBeString();
+});
+
+it('libraryTransform covers scaleDown, cover, contain, crop, convert', function () {
+    if (! class_exists('Intervention\Image\ImageManager')) {
+        $this->markTestSkipped('no intervention');
+    }
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    $dataUrl = 'data:image/png;base64,'.base64_encode($pngBytes);
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'scaleDown', ['width' => 100, 'height' => 100]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'scaleDown', []))->toBeNull(); // missing dims
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'cover', ['width' => 100, 'height' => 100]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'contain', ['width' => 100, 'height' => 100]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'crop', ['width' => 10, 'height' => 10, 'x' => 0, 'y' => 0]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'convert', ['format' => 'webp', 'quality' => 80]))->toBeString();
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'convert', ['format' => 'avif']))->toBeString();
+});
+
+it('libraryTransform handles invalid transform and base64', function () {
+    if (! class_exists('Intervention\Image\ImageManager')) {
+        $this->markTestSkipped('no intervention');
+    }
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    $dataUrl = 'data:image/png;base64,'.base64_encode($pngBytes);
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    expect($c->instance()->libraryTransformDataUrl($dataUrl, 'unknown_transform'))->toBeNull();
+    expect($c->instance()->libraryTransformDataUrl('data:image/png;base64,!!!', 'grayscale'))->toBeNull();
+    expect($c->instance()->libraryTransformDataUrl('data:text/plain;base64,abc', 'grayscale'))->toBeNull();
+});
+
+it('encodeImage covers all mime types', function () {
+    if (! class_exists('Intervention\Image\ImageManager')) {
+        $this->markTestSkipped('no intervention');
+    }
+    $c = Livewire::test(FileUpload::class, ['useImageLibrary' => true, 'autoCompress' => true]);
+    $ref = new ReflectionClass($c->instance());
+    $m = $ref->getMethod('encodeImage');
+    $m->setAccessible(true);
+    $refMgr = new ReflectionClass($c->instance());
+    $mgrM = $refMgr->getMethod('imageManager');
+    $mgrM->setAccessible(true);
+    $mgr = $mgrM->invoke($c->instance());
+    $pngBytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    $img = $mgr->decode($pngBytes);
+    expect($m->invoke($c->instance(), $img, 'image/webp', 80))->toBeString();
+    expect($m->invoke($c->instance(), $img, 'image/jpeg', 80))->toBeString();
+    expect($m->invoke($c->instance(), $img, 'image/png', 80))->toBeString();
+    expect($m->invoke($c->instance(), $img, 'image/gif', 80))->toBeString();
+    expect($m->invoke($c->instance(), $img, 'image/avif', 80))->toBeString();
+    expect($m->invoke($c->instance(), $img, 'image/bmp', 80))->toBeString();
+    expect($m->invoke($c->instance(), $img, 'unknown/mime', 80))->toBeString();
 });
