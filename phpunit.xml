@@ -5,6 +5,10 @@
     bootstrap="vendor/autoload.php"
     colors="true"
 >
+    <php>
+        <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RT2WpgA0pN81xEFqJAng="/>
+        <env name="APP_ENV" value="testing"/>
+    </php>
     <testsuites>
         <testsuite name="WireMedia">
             <directory suffix="Test.php">./tests</directory>
