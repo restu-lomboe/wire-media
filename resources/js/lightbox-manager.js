@@ -286,6 +286,7 @@ class LightboxManager {
             frame.onerror = () => { spinner.style.display = 'none'; this._renderNoPreview(preview, file); };
             preview.appendChild(frame);
         } else {
+            spinner.style.display = 'none';
             this._renderNoPreview(preview, file);
         }
     }
