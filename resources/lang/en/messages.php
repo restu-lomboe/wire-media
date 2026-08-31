@@ -15,6 +15,7 @@ return [
     'download' => 'Download',
     'badge_existing' => 'Existing',
     'badge_new' => 'New',
+    'badge_optimized' => 'Optimized',
     'fullscreen' => 'Fullscreen',
     'click_fullscreen' => 'Click to fullscreen',
     'edit_image' => 'Edit image',
@@ -44,12 +45,31 @@ return [
     'flip_v' => 'Flip vertical',
     'crop_select' => 'Select crop area',
     'crop_apply' => 'Apply crop',
+    'editor_library' => 'Library',
+    'editor_convert' => 'Convert',
+    'editor_compress' => 'Compress',
+    'library_grayscale' => 'Grayscale',
+    'library_blur' => 'Blur',
+    'library_sharpen' => 'Sharpen',
+    'library_compress' => 'Compress',
+    'library_apply' => 'Apply',
+    'library_cancel' => 'Cancel',
+    'library_convert_webp' => 'Convert to WebP',
+    'library_convert_jpeg' => 'Convert to JPEG',
+    'library_convert_png' => 'Convert to PNG',
+    'editor_transform_failed' => 'Image transform failed.',
 
     // Editor save bar
     'save_replace' => 'Replace original',
     'save_add' => 'Keep both',
     'save_download' => 'Download result',
     'save_server' => 'Save to server',
+    'editor_unsaved_badge' => 'Converted — Save to apply',
+    'editor_compressed_badge' => 'Compressed — Save to apply',
+    'editor_cropped_badge' => 'Cropped — Save to apply',
+    'editor_edited_badge' => 'Edited — Save to apply',
+    'editor_info_title' => 'Image Info',
+    'editor_converting' => 'Converting…',
 
     // Keyboard hints
     'hint_scroll_zoom' => 'to zoom',
@@ -61,6 +81,7 @@ return [
     'max_files' => 'You can only upload a maximum of :max files.',
     'invalid_extension' => 'File ":file" has an invalid extension ":extension". Allowed: :allowed.',
     'invalid_mime' => 'File ":file" has an invalid type ":mime". Allowed: :allowed.',
+    'preview_only_no_upload' => 'Upload is disabled in preview-only mode.',
 
     // Image editor
     'invalid_image_data' => 'Invalid image data.',

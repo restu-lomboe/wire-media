@@ -34,15 +34,14 @@ trait HandleImageProcessing
                 return;
             }
 
+            $old = null;
+
             if ($mode === 'replace' && isset($this->uploadedFiles[$index])) {
-                // Delete old file from storage
+                // Delete old file (+ thumbnail) from storage
                 $old = $this->uploadedFiles[$index];
                 $disk = $old['disk'] ?? $this->disk;
-                $path = $old['path'] ?? null;
 
-                if ($path && Storage::disk($disk)->exists($path)) {
-                    Storage::disk($disk)->delete($path);
-                }
+                $this->deleteStoredFile($old, $disk);
 
                 $this->uploadedFiles[$index] = $stored;
             } else {
@@ -52,6 +51,11 @@ trait HandleImageProcessing
 
             $this->editorOpen = false;
             $this->editorIndex = null;
+
+            // For replace mode, also dispatch file-removed for old so parent can sync libraryPaths/galleryPaths
+            if ($old) {
+                $this->dispatch('file-removed', file: $old);
+            }
 
             $this->dispatch('image-processed', file: $stored, mode: $mode);
 
@@ -101,10 +105,32 @@ trait HandleImageProcessing
             throw new \RuntimeException(trans('wire-media::messages.editor_mime_not_allowed', ['mime' => $mime]));
         }
 
+        // For editor saves, keep raw bytes as exported from canvas (preserves UI compress/convert quality).
+        // Library re-encode is skipped to avoid inflating a 200KB canvas JPEG back to 2MB or losing explicit format.
+        $optimized = null;
+        $thumbnailBytes = null;
+
+        if ($this->imageLibraryAvailable()) {
+            // Generate thumbnail only (400x400) without re-encoding main image
+            $thumbnailBytes = $this->buildThumbnailBytes($bytes, $mime);
+            if ($thumbnailBytes !== null) {
+                $optimized = ['thumbnail_bytes' => $thumbnailBytes];
+            }
+        }
+
         $filename = Str::uuid().'-edited.'.$extension;
         $path = rtrim($this->directory, '/').'/'.$filename;
 
         Storage::disk($this->disk)->put($path, $bytes);
+
+        $thumbnailPath = null;
+        $thumbnailUrl = null;
+
+        if (($optimized['thumbnail_bytes'] ?? null) !== null) {
+            $thumbnailPath = rtrim($this->directory, '/').'/'.Str::uuid().'-edited-thumb.webp';
+            Storage::disk($this->disk)->put($thumbnailPath, $optimized['thumbnail_bytes']);
+            $thumbnailUrl = Storage::disk($this->disk)->url($thumbnailPath);
+        }
 
         // Derive original name
         $original = $this->uploadedFiles[$originalIndex]['original_name'] ?? 'edited-image';
@@ -123,6 +149,8 @@ trait HandleImageProcessing
             'is_pdf' => false,
             'is_document' => false,
             'is_existing' => false,
+            'thumbnail' => $thumbnailPath,
+            'thumbnail_url' => $thumbnailUrl,
             'uploaded_at' => now()->toIso8601String(),
         ];
     }

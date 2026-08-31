@@ -24,10 +24,12 @@ class WireMediaServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'wire-media');
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'wire-media');
 
+        $useImageLibrary = (bool) config('wire-media.use_image_library')
+            && class_exists('Intervention\Image\ImageManager');
+
         AboutCommand::add('WireMedia', fn () => [
-            'Version' => '2.0.0',
             'Vendor' => 'developerawam',
-            'Features' => 'Upload · Crop · Zoom · Rotate · Flip · Lightbox · Dark Mode',
+            'Features' => 'Upload · Crop · Zoom · Rotate · Flip · Lightbox · Dark Mode'.($useImageLibrary ? ' · Image Library' : ''),
         ]);
 
         $this->publishes([

@@ -237,8 +237,8 @@ class LightboxManager {
         this._el.querySelector('#da-lb-prev').style.opacity = showNav ? '1' : '0';
         this._el.querySelector('#da-lb-next').style.opacity = showNav ? '1' : '0';
 
-        // Edit button: images only
-        this._el.querySelector('#da-lb-edit').style.display = file.is_image ? '' : 'none';
+        // Edit button: images only and not previewOnly (onEdit null)
+        this._el.querySelector('#da-lb-edit').style.display = (file.is_image && this.onEdit) ? '' : 'none';
 
         // Zoom bar: images only
         this._el.querySelector('#da-lb-zoombar').style.display = file.is_image ? '' : 'none';
@@ -267,6 +267,7 @@ class LightboxManager {
             preview.innerHTML = '';
             const img = document.createElement('img');
             img.className   = 'da-lb__img';
+            img.id          = 'da-lb-img';
             img.alt         = file.original_name;
             img.draggable   = false;
             img.onload      = () => { spinner.style.display = 'none'; img.style.opacity = '1'; };
@@ -285,6 +286,7 @@ class LightboxManager {
             frame.onerror = () => { spinner.style.display = 'none'; this._renderNoPreview(preview, file); };
             preview.appendChild(frame);
         } else {
+            spinner.style.display = 'none';
             this._renderNoPreview(preview, file);
         }
     }

@@ -20,8 +20,8 @@ class TestCase extends BaseTestCase
     {
         $app['config']->set('filesystems.disks.public', [
             'driver' => 'local',
-            'root'   => storage_path('app/public'),
-            'url'    => '/storage',
+            'root' => storage_path('app/public'),
+            'url' => '/storage',
         ]);
 
         $app['config']->set('livewire.temporary_file_upload.disk', 'public');

@@ -112,7 +112,7 @@ it('loads existing files from an array of path strings', function () {
     // Put a fake file on disk so the path resolves
     Storage::disk('public')->put('uploads/existing.jpg', 'fake-image-content');
 
-    Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class, [
+    Livewire::test(FileUpload::class, [
         'existingFiles' => ['uploads/existing.jpg'],
     ])
         ->assertCount('uploadedFiles', 1)
@@ -128,19 +128,19 @@ it('loads existing files from an array of metadata arrays', function () {
 
     $existing = [[
         'original_name' => 'doc.pdf',
-        'path'          => 'uploads/doc.pdf',
-        'disk'          => 'public',
-        'url'           => '/storage/uploads/doc.pdf',
-        'size'          => 1024,
-        'size_human'    => '1 KB',
-        'mime'          => 'application/pdf',
-        'extension'     => 'pdf',
-        'is_image'      => false,
-        'is_document'   => true,
-        'uploaded_at'   => now()->toIso8601String(),
+        'path' => 'uploads/doc.pdf',
+        'disk' => 'public',
+        'url' => '/storage/uploads/doc.pdf',
+        'size' => 1024,
+        'size_human' => '1 KB',
+        'mime' => 'application/pdf',
+        'extension' => 'pdf',
+        'is_image' => false,
+        'is_document' => true,
+        'uploaded_at' => now()->toIso8601String(),
     ]];
 
-    Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class, [
+    Livewire::test(FileUpload::class, [
         'existingFiles' => $existing,
     ])
         ->assertCount('uploadedFiles', 1)
@@ -154,7 +154,7 @@ it('loads existing files from an array of metadata arrays', function () {
 it('opens and closes the preview panel', function () {
     $file = UploadedFile::fake()->image('preview.jpg');
 
-    $component = Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class)
+    $component = Livewire::test(FileUpload::class)
         ->set('files', $file)
         ->assertCount('uploadedFiles', 1);
 
@@ -168,7 +168,7 @@ it('opens and closes the preview panel', function () {
 it('clears previewIndex when the previewed file is removed', function () {
     $file = UploadedFile::fake()->image('remove-me.jpg');
 
-    $component = Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class)
+    $component = Livewire::test(FileUpload::class)
         ->set('files', $file)
         ->call('openPreview', 0)
         ->assertSet('previewIndex', 0);
@@ -184,7 +184,7 @@ it('adjusts previewIndex after removing an earlier file', function () {
         UploadedFile::fake()->image('c.jpg'),
     ];
 
-    $component = Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class, ['multiple' => true])
+    $component = Livewire::test(FileUpload::class, ['multiple' => true])
         ->set('files', $files)
         ->call('openPreview', 2)   // previewing "c.jpg" at index 2
         ->assertSet('previewIndex', 2);
@@ -198,7 +198,7 @@ it('adjusts previewIndex after removing an earlier file', function () {
 it('can open the image editor for an image file', function () {
     $file = UploadedFile::fake()->image('photo.jpg');
 
-    Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class)
+    Livewire::test(FileUpload::class)
         ->set('files', $file)
         ->assertCount('uploadedFiles', 1)
         ->call('openEditor', 0)
@@ -209,7 +209,7 @@ it('can open the image editor for an image file', function () {
 it('cannot open the editor for a non-image file', function () {
     $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
 
-    Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class)
+    Livewire::test(FileUpload::class)
         ->set('files', $file)
         ->call('openEditor', 0)
         ->assertSet('editorOpen', false);
@@ -218,7 +218,7 @@ it('cannot open the editor for a non-image file', function () {
 it('closes the editor', function () {
     $file = UploadedFile::fake()->image('photo.jpg');
 
-    Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class)
+    Livewire::test(FileUpload::class)
         ->set('files', $file)
         ->call('openEditor', 0)
         ->assertSet('editorOpen', true)
@@ -234,9 +234,9 @@ it('saves a processed image to server in replace mode', function () {
     $pngBytes = base64_decode(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
     );
-    $dataUrl = 'data:image/png;base64,' . base64_encode($pngBytes);
+    $dataUrl = 'data:image/png;base64,'.base64_encode($pngBytes);
 
-    $component = Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class)
+    $component = Livewire::test(FileUpload::class)
         ->set('files', $file)
         ->assertCount('uploadedFiles', 1);
 
@@ -259,9 +259,9 @@ it('saves a processed image to server in add mode', function () {
     $pngBytes = base64_decode(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
     );
-    $dataUrl = 'data:image/png;base64,' . base64_encode($pngBytes);
+    $dataUrl = 'data:image/png;base64,'.base64_encode($pngBytes);
 
-    Livewire::test(\Developerawam\WireMedia\Components\FileUpload::class)
+    Livewire::test(FileUpload::class)
         ->set('files', $file)
         ->assertCount('uploadedFiles', 1)
         ->call('saveProcessedImage', 0, $dataUrl, 'add')
