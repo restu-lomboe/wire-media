@@ -14,12 +14,12 @@ Upload, crop, zoom, rotate, flip, **fullscreen split file viewer** (preview + de
 
 ## ✅ Requirements
 
-| Dependency | Version       |
-|------------|---------------|
-| PHP        | ^8.2 - ^8.3   |
-| Laravel    | ^12.0 \|\| ^13.0 |
-| Livewire   | ^3.0 or ^4.0  |
-| Alpine.js  | ^3.x          |
+| Dependency         | Version                                 |
+| ------------------ | --------------------------------------- |
+| PHP                | ^8.2 - ^8.3                             |
+| Laravel            | ^12.0 \|\| ^13.0                        |
+| Livewire           | ^3.0 or ^4.0                            |
+| Alpine.js          | ^3.x                                    |
 | Intervention Image | ^4.0 (optional, for library & compress) |
 
 ---
@@ -34,11 +34,11 @@ Ensure your layout includes Alpine.js and Livewire scripts:
 
 ```html
 <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-@livewireStyles
-@livewireScripts
+@livewireStyles @livewireScripts
 ```
 
 > **Large images:** If you edit large photos (3-4 MB canvas `dataUrl`), increase Livewire payload limit in `config/livewire.php`:
+>
 > ```php
 > 'payload' => ['max_size' => 5 * 1024 * 1024, // 5MB
 > ```
@@ -75,14 +75,15 @@ Then set the `use_image_library` config to `true`:
 WIRE_MEDIA_USE_IMAGE_LIBRARY=true
 ```
 
-| Config key                                     | Default      | Description                                     |
-|------------------------------------------------|--------------|-------------------------------------------------|
-| `WIRE_MEDIA_IMAGE_DRIVER`                      | `gd`         | `gd` or `imagick`                               |
-| `WIRE_MEDIA_IMAGE_MAX_WIDTH` / `MAX_HEIGHT`    | `1920/1080`  | Scale down larger images to this bound          |
-| `WIRE_MEDIA_IMAGE_QUALITY`                     | `85`         | Output quality (JPEG/WebP, 1–100)               |
-| `WIRE_MEDIA_IMAGE_FORMAT`                      | `webp`       | Output format: `webp`, `jpg`, `png`, `gif`      |
+| Config key                                  | Default     | Description                                |
+| ------------------------------------------- | ----------- | ------------------------------------------ |
+| `WIRE_MEDIA_IMAGE_DRIVER`                   | `gd`        | `gd` or `imagick`                          |
+| `WIRE_MEDIA_IMAGE_MAX_WIDTH` / `MAX_HEIGHT` | `1920/1080` | Scale down larger images to this bound     |
+| `WIRE_MEDIA_IMAGE_QUALITY`                  | `85`        | Output quality (JPEG/WebP, 1–100)          |
+| `WIRE_MEDIA_IMAGE_FORMAT`                   | `webp`      | Output format: `webp`, `jpg`, `png`, `gif` |
 
 The processor automatically:
+
 - **Resizes** oversized images down (`scaleDown`, never upscales)
 - **Converts** to the target format with quality compression
 - **Generates a WebP thumbnail variant** (`-thumb`, 400×400, used in the grid)
@@ -107,9 +108,9 @@ WIRE_MEDIA_AUTO_COMPRESS=true
 
 When `:auto-compress="true"` (or config), **upload** is automatically compressed (same mime, no resize) **only if smaller** — prevents `200KB → 2MB` inflation. Requires `intervention/image`. Library mode has priority when both are enabled and `auto-compress` is true (`resize+webp`).
 
-| Prop | Config | Env |
-|------|--------|-----|
-| `:auto-compress="true"` | `auto_compress` | `WIRE_MEDIA_AUTO_COMPRESS` |
+| Prop                       | Config             | Env                           |
+| -------------------------- | ------------------ | ----------------------------- |
+| `:auto-compress="true"`    | `auto_compress`    | `WIRE_MEDIA_AUTO_COMPRESS`    |
 | `:ui-auto-compress="true"` | `ui_auto_compress` | `WIRE_MEDIA_UI_AUTO_COMPRESS` |
 
 `ui-auto-compress` shows a **Compress slider 0–100%** in the editor toolbar (same UX as grayscale). `Apply` bakes via server `compress` transform if payload `<900KB` else client `canvas.toDataURL(mime, quality)` (with `PNG→JPEG` fallback at `<100%`). No visual filter preview — quality only affects export size.
@@ -126,29 +127,30 @@ When `:auto-compress="true"` (or config), **upload** is automatically compressed
 
 ## 🎛️ All Props
 
-| Prop                  | Type      | Default     | Description                                               |
-|-----------------------|-----------|-------------|-----------------------------------------------------------|
-| `multiple`            | `bool`    | `false`     | Allow multiple file selection                             |
-| `accepted-extensions` | `array`   | `[]`        | Allowed extensions e.g. `['jpg','png','pdf']`             |
-| `accepted-mime-types` | `array`   | `[]`        | Allowed MIME types e.g. `['image/*','application/pdf']`   |
-| `accept-attribute`    | `string`  | `''`        | Raw HTML `accept` attribute string                        |
-| `max-size-mb`         | `float`   | `2.0`       | Max file size in **megabytes**                            |
-| `max-files`           | `int`     | `0`         | Max files when multiple (0 = unlimited)                   |
-| `disk`                | `string`  | `'public'`  | Laravel filesystem disk                                   |
-| `directory`           | `string`  | `'uploads'` | Sub-directory on disk                                     |
-| `show-preview`        | `bool`    | `true`      | Show image thumbnails in grid                             |
-| `show-list`           | `bool`    | `true`      | Show uploaded file grid                                   |
-| `label`               | `string`  | `''`        | Label above dropzone                                      |
-| `help-text`           | `string`  | `''`        | Help text below component                                 |
-| `existing-files`      | `mixed`   | `null`      | Pre-load files (array of paths, metadata, or Model)       |
-| `model-attribute`     | `string`  | `null`      | Model column when `existing-files` is an Eloquent Model   |
-| `dark-mode`           | `bool`    | `false`     | Force dark mode (also auto-detects OS preference)         |
-| `use-image-library`   | `bool`    | `false`     | Enable image processing for this instance (requires Intervention) |
-| `auto-compress`       | `bool`    | `false`     | Lossless auto compress on upload (same mime, q92, no resize) |
-| `ui-auto-compress`    | `bool`    | `false`     | Show editor Compress slider 0–100%                        |
-| `preview-only`        | `bool`    | `false`     | Read-only: hide dropzone/edit/delete, only preview       |
+| Prop                  | Type     | Default     | Description                                                       |
+| --------------------- | -------- | ----------- | ----------------------------------------------------------------- |
+| `multiple`            | `bool`   | `false`     | Allow multiple file selection                                     |
+| `accepted-extensions` | `array`  | `[]`        | Allowed extensions e.g. `['jpg','png','pdf']`                     |
+| `accepted-mime-types` | `array`  | `[]`        | Allowed MIME types e.g. `['image/*','application/pdf']`           |
+| `accept-attribute`    | `string` | `''`        | Raw HTML `accept` attribute string                                |
+| `max-size-mb`         | `float`  | `2.0`       | Max file size in **megabytes**                                    |
+| `max-files`           | `int`    | `0`         | Max files when multiple (0 = unlimited)                           |
+| `disk`                | `string` | `'public'`  | Laravel filesystem disk                                           |
+| `directory`           | `string` | `'uploads'` | Sub-directory on disk                                             |
+| `show-preview`        | `bool`   | `true`      | Show image thumbnails in grid                                     |
+| `show-list`           | `bool`   | `true`      | Show uploaded file grid                                           |
+| `label`               | `string` | `''`        | Label above dropzone                                              |
+| `help-text`           | `string` | `''`        | Help text below component                                         |
+| `existing-files`      | `mixed`  | `null`      | Pre-load files (array of paths, metadata, or Model)               |
+| `model-attribute`     | `string` | `null`      | Model column when `existing-files` is an Eloquent Model           |
+| `dark-mode`           | `bool`   | `false`     | Force dark mode (also auto-detects OS preference)                 |
+| `use-image-library`   | `bool`   | `false`     | Enable image processing for this instance (requires Intervention) |
+| `auto-compress`       | `bool`   | `false`     | Lossless auto compress on upload (same mime, q92, no resize)      |
+| `ui-auto-compress`    | `bool`   | `false`     | Show editor Compress slider 0–100%                                |
+| `preview-only`        | `bool`   | `false`     | Read-only: hide dropzone/edit/delete, only preview                |
 
 **Auto-compress gating:**
+
 - `previewOnly=false` + `autoCompress=false` + `uiAutoCompress=false` → **no auto compress** (ori stored)
 - `autoCompress=true` → upload compressed (library `webp` if `useImageLibrary`, else lossless)
 - `uiAutoCompress=true` only → upload ori, compress via `Edit → slider → Apply → Save`
@@ -159,6 +161,7 @@ When `:auto-compress="true"` (or config), **upload** is automatically compressed
 ## 🌟 Features
 
 ### Upload
+
 - Drag & drop or click to browse
 - Single or multiple files
 - Extension, MIME type & file size validation
@@ -166,6 +169,7 @@ When `:auto-compress="true"` (or config), **upload** is automatically compressed
 - `previewOnly` blocks `updatedFiles/removeFile/clearAll/openEditor`
 
 ### Preview-Only Mode
+
 Read-only gallery from existing files only:
 
 ```blade
@@ -177,30 +181,21 @@ Read-only gallery from existing files only:
 - `existing-files` supports: **Storage** (`uploads/gallery/x.jpg`), **public/** dynamic folder (`upload/`, `custom_folder/` via `public_path()` → `asset()`), **external URL** (`https://...`, S3 `https://bucket.s3.amazonaws.com/...`), **missing** → `data:image/svg+xml` placeholder “Image not found”.
 
 ### Image Viewer — Fullscreen Split View
+
 Click **any card thumbnail** (image, PDF or document) or the **↔ fullscreen button** (images).
 
 The viewer opens as a **fullscreen modal split into two panes**:
 
-```
-┌──────────────────────────────────────────┬──────────────────┐
-│                                          │  File name  [BADGE]│
-│              FILE PREVIEW                │──────────────────│
-│   (left pane, flexible width)            │  Type             │
-│                                          │  Size             │
-│                                          │  Disk             │
-│                                          │  Path             │
-│                                          │  Uploaded         │
-│                                          │  Status           │
-└──────────────────────────────────────────┴──────────────────┘
-                [ thumbnail strip ]
-```
+![Screenshot](./image-viewer.png)
 
 **Left pane — preview** (adapts to file type):
+
 - **Image** → `<img>` with loading spinner (hidden for docs)
 - **PDF** → inline `<iframe>` embed (`#toolbar=0&navpanes=0`)
 - **Other documents** → extension badge + "no preview" placeholder
 
 **Right pane — details** (auto-fills on every slide):
+
 - File name + **status badge** (`New` / `Existing` / `Missing`)
 - **Type** (MIME + extension)
 - **Size** (human readable + raw bytes)
@@ -210,6 +205,7 @@ The viewer opens as a **fullscreen modal split into two panes**:
 - **Status**
 
 **Navigation & controls:**
+
 - Prev / Next (`←` `→` keyboard, buttons, swipe on mobile)
 - Scrollable thumbnail strip (images show thumbnails; documents show extension badges)
 - Zoom (buttons, scroll wheel, `+` / `-` / `0` — images only, hidden when `previewOnly`)
@@ -220,35 +216,23 @@ The viewer opens as a **fullscreen modal split into two panes**:
 > The details panel is a dedicated component with **sticky header**, scrollable list, and a responsive layout: on narrow screens (<768px) the panes **stack vertically** (preview on top, details below).
 
 ### Image Editor — Fullscreen Split Stage
+
 Click ✏️ (on an image card, in the viewer, or in the detail panel) to open the editor.
 
 The editor opens as a **fullscreen overlay** (`position: fixed`, covers the viewport) with **split stage**: canvas left + live info right:
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Zoom ▾ ⬚ ▴  Rotate ⟳ ⟲  Flip ⇋ ⇵  Crop ▧ ✓  Compress  Library ... Reset  ✕  │  ← toolbar
-├──────────────────────────────────┬───────────────────────────────┤
-│                                  │  Image Info  [badge]          │
-│         CANVAS  (flex, centered) │  Name                         │
-│         + crop overlay           │  Type (mime)                  │
-│         + Converting overlay     │  Size (human + bytes ↓/↑)     │
-│                                  │  Disk / Path                  │
-├──────────────────────────────────┴───────────────────────────────┤
-│ ◉ Replace original  ◉ Keep both     ↓ Download   💾 Save   Cancel │  ← save bar (+ pulse badge when edited)
-└──────────────────────────────────────────────────────────────────┘
-                 [hint: Scroll/Drag/Crop overlay at canvas bottom]
-```
+![Screenshot](./image-edit.png) [hint: Scroll/Drag/Crop overlay at canvas bottom]
 
-| Action       | How                                   |
-|--------------|---------------------------------------|
-| Zoom in/out  | Scroll wheel or toolbar buttons       |
-| Pan          | Drag when not in crop mode            |
-| Rotate       | CW/CCW 90° buttons                    |
-| Flip         | Horizontal or vertical buttons        |
-| Crop         | Enable → drag to select → Apply ✓    |
-| Compress     | Slider 0–100% → Apply (PNG→JPEG at <100%) |
-| Library      | Grayscale/Blur/Sharpen slider + Convert WebP/JPG/PNG |
-| Reset        | Reset all transforms (undoes crops/convert/compress) |
+| Action      | How                                                  |
+| ----------- | ---------------------------------------------------- |
+| Zoom in/out | Scroll wheel or toolbar buttons                      |
+| Pan         | Drag when not in crop mode                           |
+| Rotate      | CW/CCW 90° buttons                                   |
+| Flip        | Horizontal or vertical buttons                       |
+| Crop        | Enable → drag to select → Apply ✓                    |
+| Compress    | Slider 0–100% → Apply (PNG→JPEG at <100%)            |
+| Library     | Grayscale/Blur/Sharpen slider + Convert WebP/JPG/PNG |
+| Reset       | Reset all transforms (undoes crops/convert/compress) |
 
 - **Close ✕** button pinned to the top-right of the toolbar
 - **Cancel** also available in the save bar
@@ -257,9 +241,11 @@ The editor opens as a **fullscreen overlay** (`position: fixed`, covers the view
 - Save options: **Replace original** (dispatches `file-removed` for old + `image-processed`), **Keep both**, or **Download locally**
 
 ### Detail Panel (fallback, non-image)
+
 For non-image files in the standard view, opening the card previously used an inline detail panel. With the fullscreen split viewer this is no longer needed — every file type now opens the unified fullscreen viewer instead.
 
 ### Edit Mode
+
 Pre-load existing files:
 
 ```blade
@@ -280,6 +266,7 @@ Pre-load existing files:
 ```
 
 ### Dark Mode
+
 Auto-detects OS preference. Force with `:dark-mode="true"`.
 
 ---
@@ -336,12 +323,12 @@ Auto-detects OS preference. Force with `:dark-mode="true"`.
 
 ## 🎉 Browser Events
 
-| Event             | Payload          | Description                     |
-|-------------------|------------------|---------------------------------|
-| `file-uploaded`   | `{ file }`       | New file stored                 |
+| Event             | Payload          | Description                                                           |
+| ----------------- | ---------------- | --------------------------------------------------------------------- |
+| `file-uploaded`   | `{ file }`       | New file stored                                                       |
 | `file-removed`    | `{ file }`       | File deleted from storage (also dispatched on `replace` for old file) |
-| `files-cleared`   | —                | All files deleted               |
-| `image-processed` | `{ file, mode }` | Edited image saved to server (`replace`/`add`) |
+| `files-cleared`   | —                | All files deleted                                                     |
+| `image-processed` | `{ file, mode }` | Edited image saved to server (`replace`/`add`)                        |
 
 > The events are dispatched **globally** through the browser (not component-scoped), so they can be listened to from **any Livewire component**, plain JavaScript, or Alpine. On `replace`, both `file-removed` (old) and `image-processed` (new) are dispatched for parent sync.
 
@@ -440,13 +427,13 @@ class PostForm extends Component
 Plain JS:
 
 ```js
-window.addEventListener('image-processed', (e) => {
-    console.log('Saved:', e.detail.file.url);
-    console.log('Mode:', e.detail.mode); // 'replace' | 'add'
+window.addEventListener("image-processed", (e) => {
+  console.log("Saved:", e.detail.file.url);
+  console.log("Mode:", e.detail.mode); // 'replace' | 'add'
 });
 
-window.addEventListener('file-uploaded', (e) => {
-    console.log('New file:', e.detail.file.original_name);
+window.addEventListener("file-uploaded", (e) => {
+  console.log("New file:", e.detail.file.original_name);
 });
 ```
 
@@ -454,13 +441,13 @@ Alpine (`$dispatch`):
 
 ```html
 <div x-data @file-uploaded.window="console.log($event.detail.file.path)">
-    ...
+  ...
 </div>
 
 <script>
-    document.addEventListener('file-uploaded', (e) => {
-        // e.detail.file → metadata array
-    });
+  document.addEventListener("file-uploaded", (e) => {
+    // e.detail.file → metadata array
+  });
 </script>
 ```
 
@@ -470,9 +457,16 @@ You can also fire the same events from anywhere to reuse your listener logic (e.
 
 ```js
 // From JS — payload must match the expected shape
-window.dispatchEvent(new CustomEvent('file-uploaded', {
-    detail: { file: { path: 'uploads/example.jpg', url: '/storage/uploads/example.jpg', /* … */ } },
-}));
+window.dispatchEvent(
+  new CustomEvent("file-uploaded", {
+    detail: {
+      file: {
+        path: "uploads/example.jpg",
+        url: "/storage/uploads/example.jpg" /* … */,
+      },
+    },
+  }),
+);
 ```
 
 ```php
