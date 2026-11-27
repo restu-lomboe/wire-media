@@ -1,9 +1,10 @@
 # WireMedia
 
 [![Latest Version](https://img.shields.io/packagist/v/developerawam/wire-media.svg?style=flat-square)](https://packagist.org/packages/developerawam/wire-media)
+[![Total Downloads](https://img.shields.io/packagist/dt/developerawam/wire-media.svg?style=flat-square)](https://packagist.org/packages/developerawam/wire-media)
 [![Laravel](https://img.shields.io/badge/Laravel-12.x%20%7C%2013.x-FF2D20?style=flat-square&logo=laravel)](https://laravel.com)
 [![Livewire](https://img.shields.io/badge/Livewire-v3%20%7C%20v4-FB70A9?style=flat-square)](https://livewire.laravel.com)
-[![License](https://img.shields.io/packagist/l/developerawam/wire-media.svg?style=flat-square)](LICENSE.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE.md)
 
 **Premium Livewire media upload & image editor for Laravel 12/13.**  
 Upload, crop, zoom, rotate, flip, **fullscreen split file viewer** (preview + details side-by-side) and **fullscreen image editor with live info** — zero external JS dependencies.
